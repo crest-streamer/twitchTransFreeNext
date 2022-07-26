@@ -2,14 +2,11 @@
 # -*- coding: utf-8 -*-
 
 #from googletrans import Translator
-from async_google_trans_new import google_translator, constant
+from async_google_trans_new import AsyncTranslator, google_translator, constant
 
-from gtts import gTTS
-from playsound import playsound
 import os
 from datetime import datetime
 import threading
-import queue
 import time
 import shutil
 import re
@@ -19,7 +16,7 @@ import json
 
 import asyncio
 import deepl
-
+import platform
 # from python_twitch_irc import TwitchIrc
 from twitchio.ext import commands
 
@@ -31,8 +28,14 @@ import signal
 # if not sys.warnoptions:
 #     warnings.simplefilter("ignore")
 
-version = '2.4.0'
+version = 'c1.0.4'
+description = 'wのみのコメント(「wwww」等)を翻訳しない設定と特定の単語を指定した単語に変換する設定と!desコマンドを追加'
 '''
+c1.0.4  : - wのみのコメント(「wwww」等)を翻訳しない設定と特定の単語を指定した単語に変換する設定と!desコマンドを追加
+c1.0.3  : - 削除し忘れていたコードを削除
+c1.0.2  : - 翻訳処理周りがおかしかったのを修正
+c1.0.1  : - lang_detectが空欄(言語が検出できなかった)場合、翻訳を実施しない
+c1.0.0  : - さよなり大先生のtwitchtransFreeNextをベースにカスタマイズ
 v2.4.0  : - yuniruyuni先生によるrequirements環境の整理
           - それに合わせたソースの改変
           - CeVIOへの対応
@@ -72,9 +75,6 @@ GoogleTranslate_suffix  = 'co.jp'
 #translator = Translator()
 # translator = google_translator(timeout=5)
 
-synth_queue = queue.Queue()
-sound_queue = queue.Queue()
-
 # configure for Google TTS & play
 TMP_DIR = './tmp/'
 
@@ -88,36 +88,21 @@ TargetLangs = ["af", "sq", "am", "ar", "hy", "az", "eu", "be", "bn", "bs", "bg",
                 "pl", "pt", "ma", "ro", "ru", "sm", "gd", "sr", "st", "sn", "sd", "si", "sk", "sl", "so", "es", "su", "sw",
                 "sv", "tg", "ta", "te", "th", "tr", "uk", "ur", "uz", "vi", "cy", "xh", "yi", "yo", "zu"]
 
-deepl_lang_dict = {'de':'DE', 'en':'EN', 'fr':'FR', 'es':'ES', 'pt':'PT', 'it':'IT', 'nl':'NL', 'pl':'PL', 'ru':'RU', 'ja':'JA', 'zh-CN':'ZH'}
-
-
 ##########################################
 # load config text #######################
 import importlib
 
 # For [directly run from Python script at Windows, MacOS] -----------------------
 try:
-    sys.path.append(os.path.join(os.path.dirname(__file__), '.'))
+    sys.path.append(os.path.join(os.path.dirname(sys.argv[0])))
     config = importlib.import_module('config')
 except Exception as e:
     print(e)
     print('Please make [config.py] and put it with twitchTransFN')
     input() # stop for error!!
 
-# # For [MacOS & pyinstaller] --------------------------------------------------
-# from AppKit import NSBundle
-
-# path = NSBundle.mainBundle().pathForResource_ofType_("config", "py")
-# path = path.replace('config.py','')
-# try:
-#     sys.path.append(os.path.join(path, '.'))
-#     config = importlib.import_module('config')
-# except Exception as e:
-#     print(e)
-#     print(path)
-#     print('Please make [config.py] and put it with twitchTransFN')
-#     input() # stop for error!!
-
+deepl_lang_dict = config.DeeplTrans
+rep_words       = config.Replace_Words
 ###################################
 # fix some config errors ##########
 # lowercase channel and username ------
@@ -133,16 +118,6 @@ if config.Twitch_Channel.startswith('#'):
 if config.Trans_OAUTH.startswith('oauth:'):
     # print("Find 'oauth:' at OAUTH text! I remove 'oauth:' from 'config:Trans_OAUTH'")
     config.Trans_OAUTH = config.Trans_OAUTH[6:]
-
-# convert depreated gTTS_In, gTTS_Out => TTS_in, TTS_Out ------
-if hasattr(config, 'gTTS_In') and not hasattr(config, 'TTS_In'):
-    print('[warn] gTTS_In is already deprecated, please use TTS_In instead.')
-    config.TTS_In = config.gTTS_In
-
-if hasattr(config, 'gTTS_Out') and not hasattr(config, 'TTS_Out'):
-    print('[warn] gTTS_Out is already deprecated, please use TTS_Out instead.')
-    config.TTS_Out = config.gTTS_Out
-
 
 # 無視言語リストの準備 ################
 Ignore_Lang = [x.strip() for x in config.Ignore_Lang]
@@ -165,7 +140,7 @@ if GoogleTranslate_suffix not in URL_SUFFIX_LIST:
 else:
     url_suffix = GoogleTranslate_suffix
 
-translator = google_translator(url_suffix=url_suffix)
+translator = AsyncTranslator(url_suffix=url_suffix)
 
 ##########################################
 # 関連関数 ################################
@@ -203,6 +178,26 @@ def GAS_Trans(text, lang_source, lang_target):
 # メイン動作 ##############################
 ##########################################
 
+def trans_word(inputtext):
+    replacements = config.Replace_Words
+    return re.sub('({})'.format('|'.join(map(re.escape, replacements.keys()))), lambda m: replacements[m.group()], inputtext)
+
+async def DeeplTrans(mes,lang_dest, lang_detect):
+    try:
+        if lang_detect in deepl_lang_dict.keys() and lang_dest in deepl_lang_dict.keys():
+            translatedText = deepl.translate(source_language=deepl_lang_dict[lang_detect], target_language=deepl_lang_dict[lang_dest], text=mes)
+            if config.Debug: print(f'[DeepL Tlanslate]({deepl_lang_dict[lang_detect]} > {deepl_lang_dict[lang_dest]})')
+        elif not config.GAS_URL:
+            translatedText = await translator.translate(mes, lang_dest)
+            if config.Debug: print('[Google Tlanslate]')
+        else:
+            translatedText = GAS_Trans(mes, '', lang_dest)
+            if config.Debug: print('[Google Tlanslate (Google Apps Script)]')
+        return(translatedText)
+    except Exception as e:
+        if config.Debug: print(e)
+
+
 class Bot(commands.Bot):
 
     def __init__(self):
@@ -219,8 +214,10 @@ class Bot(commands.Bot):
         'Called once when the bot goes online.'
         print(f"{config.Trans_Username} is online!")
         channel = self.get_channel(config.Twitch_Channel)
-        await channel.send(f"/color {config.Trans_TextColor}")
-        await channel.send(f"/me has landed!")
+        if config.Trans_TextColor != '':
+            await channel.send(f"/color {config.Trans_TextColor}")
+        if config.Start_Message != '':
+            await channel.send(config.Start_Message)
 
     # メッセージを受信したら ####################
     async def event_message(self, msg):
@@ -292,14 +289,23 @@ class Bot(commands.Bot):
 
                 # message(msg.contextの編集用変数)から，エモート削除
                 if config.Debug: print(f'message with emote:{message}')
-                for w in sorted(emote_list, key=len, reverse=True):
-                    if config.Debug: print(w)
+                restxt = ''
+                for w in emote_list:
+                    restxt = restxt + w + " "
                     message = message.replace(w, '')
 
-                if config.Debug: print(f'message without emote:{message}')
+                print(restxt)
 
         # 複数空文字を一つにまとめる --------
         message = " ".join( message.split() )
+
+        if config.Ignore_Only_ww:
+            message = re.sub('^w*w$','',message)
+            if message == '':
+                return
+
+        # 削除単語リストチェック --------------
+        message = trans_word(message)
 
         # 入力 --------------------------
         in_text = message
@@ -310,7 +316,7 @@ class Bot(commands.Bot):
         lang_detect = ''
 
         # use google_trans_new ---
-        if not config.GAS_URL:
+        if (not config.GAS_URL or config.Translator == 'deepl'):
             try:
                 detected = await translator.detect(in_text)
                 lang_detect = detected[0]
@@ -349,14 +355,13 @@ class Bot(commands.Bot):
 
         if config.Debug: print(f"lang_dest:{lang_dest} in_text:{in_text}")
 
-        # 音声合成（入力文） --------------
-        # if len(in_text) > int(config.TooLong_Cut):
-        #     in_text = in_text[0:int(config.TooLong_Cut)]
-        if config.TTS_In: synth_queue.put([in_text, lang_detect])
-
         # 検出言語と翻訳先言語が同じだったら無視！
         if lang_detect == lang_dest:
-            return
+                if config.Debug:
+                    print("No Translate")
+                    return
+                else:
+                    return
 
         ################################
         # 翻訳 --------------------------
@@ -365,42 +370,43 @@ class Bot(commands.Bot):
 
         # use deepl --------------
         # (try to use deepl, but if the language is not supported, text will be translated by google!)
-        if config.Translator == 'deepl':
-            try:
-                if lang_detect in deepl_lang_dict.keys() and lang_dest in deepl_lang_dict.keys():
-                    translatedText = deepl.translate(source_language=deepl_lang_dict[lang_detect], target_language=deepl_lang_dict[lang_dest], text=in_text)
-                    if config.Debug: print(f'[DeepL Tlanslate]({deepl_lang_dict[lang_detect]} > {deepl_lang_dict[lang_dest]})')
+        if lang_detect != '':
+            if config.Translator == 'deepl':
+                translatedText = await DeeplTrans(in_text, lang_dest, lang_detect)
+            # NOT use deepl ----------
+            elif config.Translator == 'google':
+                # use google_trans_new ---
+                if not config.GAS_URL:
+                    try:
+                        translatedText = await translator.translate(in_text, lang_dest)
+                        if config.Debug: print('[Google Tlanslate (google_trans_new)]')
+                    except Exception as e:
+                        if config.Debug: print(e)
+
+                # use GAS ---
                 else:
-                    translatedText = await translator.translate(in_text, lang_dest)
-                    if config.Debug: print('[Google Tlanslate]')
-            except Exception as e:
-                if config.Debug: print(e)
+                    try:
+                        translatedText = GAS_Trans(in_text, '', lang_dest)
+                        if config.Debug: print('[Google Tlanslate (Google Apps Script)]')
+                    except Exception as e:
+                        if config.Debug: print(e)
 
-        # NOT use deepl ----------
-        elif config.Translator == 'google':
-            # use google_trans_new ---
-            if not config.GAS_URL:
-                try:
-                    translatedText = await translator.translate(in_text, lang_dest)
-                    if config.Debug: print('[Google Tlanslate (google_trans_new)]')
-                except Exception as e:
-                    if config.Debug: print(e)
-
-            # use GAS ---
             else:
-                try:
-                    translatedText = GAS_Trans(in_text, '', lang_dest)
-                    if config.Debug: print('[Google Tlanslate (Google Apps Script)]')
-                except Exception as e:
-                    if config.Debug: print(e)
-
+                print(f'ERROR: config TRANSLATOR is set the wrong value with [{config.Translator}]')
+                return                  
         else:
-            print(f'ERROR: config TRANSLATOR is set the wrong value with [{config.Translator}]')
-            return                  
+            translatedText = ""
+            if config.Debug:
+                print("No Translate")
+                return
+            else:
+                return
 
         # チャットへの投稿 ----------------
         # 投稿内容整形 & 投稿
         out_text = translatedText
+        if out_text == '':
+           return
         if config.Show_ByName:
             out_text = '{} [by {}]'.format(out_text, user)
         if config.Show_ByLang:
@@ -411,151 +417,17 @@ class Bot(commands.Bot):
 
         await msg.channel.send("/me " + out_text)
 
-
-        # 音声合成（出力文） --------------
-        # if len(translatedText) > int(config.TooLong_Cut):
-        #     translatedText = translatedText[0:int(config.TooLong_Cut)]
-        if config.TTS_Out: synth_queue.put([translatedText, lang_dest])
-
         print()                  
 
-
-    ##############################
-    # コマンド ####################
     @commands.command(name='ver')
     async def ver(self, ctx):
-        await ctx.send('this is tTFN. ver: ' + version)
+        await ctx.send('ttfn_custom ver : ' + version)
 
-    @commands.command(name='sound')
-    async def sound(ctx):
-        sound_name = ctx.content.strip().split(" ")[1]
-        sound_queue.put(sound_name)
-
-    @commands.command(name='timer')
-    async def timer(ctx):
-        timer_min = 0
-        timer_name = ''
-
-        d = ctx.content.strip().split(" ")
-        if len(d) == 2:
-            try:
-                timer_min = int(d[1])
-            except Exception as e:
-                    print('timer error: !timer [min] [name]')
-                    if config.Debug: print(e.args)
-                    return 0
-
-        elif len(d) == 3:
-            try:
-                timer_min = int(d[1])
-                timer_name = d[2]
-            except Exception as e:
-                    print('timer error: !timer [min] [name]')
-                    if config.Debug: print(e.args)
-                    return 0
-
-        else:
-            print(f'command error [{ctx.content}]')
-            return 0
-
-        await ctx.send(f'#### timer [{timer_name}] ({timer_min} min.) start! ####')
-        await asyncio.sleep(timer_min*60)
-        await ctx.send(f'#### timer [{timer_name}] ({timer_min} min.) end! ####')
+    @commands.command(name='des')
+    async def des(self, ctx):
+        await ctx.send(version + ' : ' + description)
 
 bot = Bot()
-
-# CeVIOを呼び出すための関数を生成する関数
-# つまり cast 引数を与えることで、この関数から
-# 該当のCeVIOキャストにより音声再生を行える関数が帰ってきます。
-# 例("さとうささら"に"ささらちゃん読み上げて！"を読ませる呼び出し):
-#   f = CeVIO("さとうささら")
-#   f("ささらちゃん読み上げて！", "ja")
-# TODO: ただし第二引数(tl)は現状実装されていないため、
-# 該当キャストのデフォルト言語で読み上げは行われます。
-def CeVIO(cast):
-    # CeVIOとそれを呼び出すためのWin32COMの仕組みはWindowsにしかありません。
-    # そこでこのCeVIO関数内にimport実行を閉じることで
-    # ライブラリの不在を回避して他環境と互換させます。
-    import win32com.client
-    cevio = win32com.client.Dispatch("CeVIO.Talk.RemoteService2.ServiceControl2")
-    cevio.StartHost(False)
-    talker = win32com.client.Dispatch("CeVIO.Talk.RemoteService2.Talker2V40")
-    talker.Cast = cast
-    # in this routine, we will omit tl because CeVIO doesn't support language paramter.
-    def play(text, _):
-        try:
-            state = talker.Speak(text)
-            if config.Debug: print(f"text '{text}' has dispatched to CeVIO.")
-            state.Wait()
-        except Exception as e:
-            print('CeVIO error: TTS sound is not generated...')
-            if config.Debug: print(e.args)
-    return play
-
-# gTTSを利用して
-# 音声合成 ＆ ファイル保存 ＆ ファイル削除
-# までを行う音声合成の実行関数。
-def gTTS_play(text, tl):
-    try:
-        tts = gTTS(text, lang=tl)
-        tts_file = './tmp/cnt_{}.mp3'.format(datetime.now().microsecond)
-        if config.Debug: print('gTTS file: {}'.format(tts_file))
-        tts.save(tts_file)
-        playsound(tts_file, True)
-        os.remove(tts_file)
-    except Exception as e:
-        print('gTTS error: TTS sound is not generated...')
-        if config.Debug: print(e.args)
-
-# 音声合成(TTS)の待ち受けスレッド
-# このスレッドにより各音声合成(TTS)が起動して音声読み上げされます。
-# このスレッドに対するメッセージ入力は
-# グローバルに定義されたsynth_queueを介して行います。
-def voice_synth():
-    global synth_queue
-
-    tts = Determine_TTS()
-    while True:
-        q = synth_queue.get()
-        if q is None:
-            time.sleep(1)
-        else:
-            text    = q[0]
-            tl      = q[1]
-
-            if config.Debug: print('debug in Voice_Thread')
-            if config.Debug: print(f'config.ReadOnlyTheseLang : {config.ReadOnlyTheseLang}')
-            if config.Debug: print(f'tl not in config.ReadOnlyTheseLang : {tl not in config.ReadOnlyTheseLang}')
-
-            # 「この言語だけ読み上げて」リストが空じゃなく，なおかつそのリストにに入ってなかったら無視
-            if config.ReadOnlyTheseLang and (tl not in config.ReadOnlyTheseLang):
-                continue
-
-            tts(text, tl)
-
-# どのTextToSpeechを利用するかをconfigから選択して再生用の関数を返す
-def Determine_TTS():
-    kind = config.TTS_Kind.strip().upper()
-    if kind == "CeVIO".upper():
-        return CeVIO(config.CeVIO_Cast)
-    else:
-        return gTTS_play
-
-#####################################
-# !sound 音声再生スレッド -------------
-def sound_play():
-    global sound_queue
-
-    while True:
-        q = sound_queue.get()
-        if q is None:
-            time.sleep(1)
-        else:
-            try:
-                playsound('./sound/{}.mp3'.format(q), True)
-            except Exception as e:
-                print('sound error: [!sound] command can not play sound...')
-                if config.Debug: print(e.args)
 
 #####################################
 # 最後のクリーンアップ処理 -------------
@@ -571,7 +443,6 @@ def cleanup():
 # sig handler  -------------
 def sig_handler(signum, frame) -> None:
     sys.exit(1)
-
 
 #####################################
 # _MEI cleaner  -------------
@@ -621,25 +492,6 @@ def main():
             if config.Debug: print(f'GAS URL: {config.GAS_URL}')
 
         # 作業用ディレクトリ削除 ＆ 作成 ----
-        if config.Debug: print("making tmp dir...")
-        if os.path.exists(TMP_DIR):
-            du = shutil.rmtree(TMP_DIR)
-            time.sleep(0.3)
-
-        os.mkdir(TMP_DIR)
-        if config.Debug: print("made tmp dir.")
-
-        # 音声合成スレッド起動 ################
-        if config.Debug: print("run, voice synth thread...")
-        if config.TTS_In or  config.TTS_Out:
-            thread_voice = threading.Thread(target=voice_synth)
-            thread_voice.start()
-
-        # 音声再生スレッド起動 ################
-        if config.Debug: print("run, sound play thread...")
-        thread_sound = threading.Thread(target=sound_play)
-        thread_sound.start()
-
         # bot
         bot.run()
 

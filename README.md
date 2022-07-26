@@ -5,7 +5,7 @@ This software is for Windows7 or later Only<br />
 Original ttfn(twitchtransFN) is here https://github.com/sayonari/twitchTransFreeNext
 
 # Download
-[latest Release](https://github.com/crest-streamer/twichTransFreeNext/releases/latest)<br />
+[latest Release](https://github.com/crest-streamer/twitchTransFreeNext/releases/latest)<br />
 To run on Windows 7 or later<br />
 twitchTransFreeNext_windows.zip<br />
 <br /><br />
@@ -57,7 +57,7 @@ if completed edit then Overwrite.
   
 # 日本語
 
-# ttfn_customize
+# twitchTransFreeNext CustomBuild
 本ソフトウェアはWindows7以降専用です。それ以前のOSやMac/Linuxに関してはpythonで実行してください。<br />
 オリジナルの翻訳ちゃんFreeNextは https://github.com/sayonari/twitchTransFreeNext です。(大感謝！)
 
@@ -66,6 +66,10 @@ if completed edit then Overwrite.
 Windowsの方は「twitchTransFreeNext_windows.zip」を<br /><br />
 OS問わずPythonで実行する方は「twitchTransFreeNext_python.zip」を<br />
 ダウンロードして下さい。
+
+# memo
+## グーグル翻訳で対応している言語一覧
+https://cloud.google.com/translate/docs/languages
 
 # 必要なファイル
 <li>実行ファイル</li>

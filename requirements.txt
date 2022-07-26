@@ -1,6 +1,5 @@
 async_google_trans_new==1.4.5
-gTTS==2.2.4
-playsound==1.2.2
 deepl-translate==1.2.0
 twitchio==2.3.0
 pywin32;platform_system == 'Windows'
+AppKit;platform_system == 'Darwin'

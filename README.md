@@ -1,16 +1,16 @@
-# ttfn_customize
+# twitchTransFreeNext CustomBuild
 [日本語解説](#日本語)
 
 This software is for Windows7 or later Only<br />
 Original ttfn(twitchtransFN) is here https://github.com/sayonari/twitchTransFreeNext
 
 # Download
-[latest Release](https://github.com/crest-streamer/ttfn_customize/releases/latest)<br />
+[latest Release](https://github.com/crest-streamer/twichTransFreeNext/releases/latest)<br />
 To run on Windows 7 or later<br />
-ttfn_custom_windows.zip<br />
+twitchTransFreeNext_windows.zip<br />
 <br /><br />
 To run on any OS with Python<br />
-ttfn_custom_python.zip
+twitchTransFreeNext_python.zip
 
 # memo
 ## support language (google translator)
@@ -25,7 +25,7 @@ NOTE: When rewriting config.txt, please delete the `#` mark at the beginning of 
 
 # Required Files
 <li>Executable Binaly</li>
-<pre>ttfn_custom.exe
+<pre>twitchTransFN.exe
 config.py</pre>
 <li>Execute with Python(Developer's operating environment is Python 3.9.13)</li>
 <pre>twitchTransFN.py
@@ -50,7 +50,7 @@ if completed edit then Overwrite.
 # How to Execute with Python
 1.Install Python3.x(Developer's operating environment is Python 3.9.13)<br>
 2.run command with Command Pronpt/Terminal # pip(or pip3 or pip3.x) install -r requirements.txt<br />
-3.run command with Command Pronpt/Terminal # python(or python3 or python3.x) ttfn_custom.py<br />
+3.run command with Command Pronpt/Terminal # python(or python3 or python3.x) twitchTransFN.py<br />
 4.If it translates after a test chat, it is a success. enjoy!<br />
 5.Ctrl+C is Terminate<br />
   <hr>
@@ -62,14 +62,14 @@ if completed edit then Overwrite.
 オリジナルの翻訳ちゃんFreeNextは https://github.com/sayonari/twitchTransFreeNext です。(大感謝！)
 
 # ダウンロード
-[最新版](https://github.com/crest-streamer/ttfn_customize/releases/latest)<br />
-Windowsの方は「ttfn_custom_windows.zip」を<br /><br />
-OS問わずPythonで実行する方は「ttfn_custom_python.zip」を<br />
+[最新版](https://github.com/crest-streamer/twitchTransFreeNext/releases/latest)<br />
+Windowsの方は「twitchTransFreeNext_windows.zip」を<br /><br />
+OS問わずPythonで実行する方は「twitchTransFreeNext_python.zip」を<br />
 ダウンロードして下さい。
 
 # 必要なファイル
 <li>実行ファイル</li>
-<pre>ttfn_custom.exe
+<pre>twitchTransFN.exe
 config.py</pre>
 <li>Pythonで動かす用ファイル</li>
 <pre>twitchTransFN.py
@@ -94,7 +94,7 @@ config.pyをメモ帳等で開き、編集して保存してください。<br /
 # Pythonでの実行方法
 1.Python3.xをインストールします。(開発者の動作環境は3.9.13です)<br />
 2.「pip(or pip3 or pip3.x) install -r requirements.txt」をコマンドプロンプト/ターミナル/端末で実行します。<br />
-3.「python(or python3 or python3.x) ttfn_custom.py」をコマンドプロンプト/ターミナル/端末で実行します。<br />
+3.「python(or python3 or python3.x) twitchTransFN.py」をコマンドプロンプト/ターミナル/端末で実行します。<br />
 4.テストチャットをして翻訳されれば成功です。<br />
 5.コマンドプロンプト/ターミナル/端末で「Ctrl+C」キーを同時押しすると終了します。<br />
     
@@ -109,10 +109,6 @@ The developer of ...
 - Google
 - googletrans by ssut
     - https://github.com/ssut/py-googletrans
-- gtts by pndurette
-    - https://github.com/pndurette/gTTS
-- playsound by TaylorSMarks
-    - https://github.com/TaylorSMarks/playsound
 - TwitchIO
     - https://github.com/TwitchIO/TwitchIO
 

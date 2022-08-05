@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#from googletrans import Translator
-from async_google_trans_new import AsyncTranslator, google_translator, constant
+from async_google_trans_new import AsyncTranslator, constant
 
 import os
 from datetime import datetime
@@ -11,31 +10,20 @@ import time
 import shutil
 import re
 
-import requests
-import json
-
 import asyncio
 import deepl
-import platform
-# from python_twitch_irc import TwitchIrc
+
 from twitchio.ext import commands
 
 import sys
-from sys import exit
 import signal
 
-# import warnings
-# if not sys.warnoptions:
-#     warnings.simplefilter("ignore")
-
-version = 'c1.0.4'
-description = 'wのみのコメント(「wwww」等)を翻訳しない設定と特定の単語を指定した単語に変換する設定と!desコマンドを追加'
+version = 'c1.0.6'
+description = 'v2.5.0をベースに再度ソース書き換え'
 '''
-c1.0.4  : - wのみのコメント(「wwww」等)を翻訳しない設定と特定の単語を指定した単語に変換する設定と!desコマンドを追加
-c1.0.3  : - 削除し忘れていたコードを削除
-c1.0.2  : - 翻訳処理周りがおかしかったのを修正
-c1.0.1  : - lang_detectが空欄(言語が検出できなかった)場合、翻訳を実施しない
-c1.0.0  : - さよなり大先生のtwitchtransFreeNextをベースにカスタマイズ
+c1.0.6  : - v2.5.0をベースに再度ソース書き換え
+v2.5.0  : - 実行バイナリをリポジトリに含めず，ActionsでReleaseするように変更（yuniruyuni先生，ちゃらひろ先生による）
+          - 様々なバグ修正（ちゃらひろせんせいによる）
 v2.4.0  : - yuniruyuni先生によるrequirements環境の整理
           - それに合わせたソースの改変
           - CeVIOへの対応
@@ -62,24 +50,24 @@ v2.0.4  :
 v2.0.3  : いろいろ実装した
 '''
 
-
-# 設定 ###############################
-# Enter the suffix of the Google Translate URL you normally use.
-# Example: translate.google.co.jp -> 'co.jp'
-#          translate.google.com   -> 'com'
-GoogleTranslate_suffix  = 'co.jp'
-
-
 #####################################
 # 初期設定 ###########################
-#translator = Translator()
-# translator = google_translator(timeout=5)
-
-# configure for Google TTS & play
-TMP_DIR = './tmp/'
 
 # translate.googleのサフィックスリスト
 URL_SUFFIX_LIST = [re.search('translate.google.(.*)', url.strip()).group(1) for url in constant.DEFAULT_SERVICE_URLS]
+
+##########################################
+# load config text #######################
+import importlib
+
+# For [directly run from Python script at Windows, MacOS] -----------------------
+try:
+    sys.path.append(os.path.dirname(sys.argv[0]))
+    config = importlib.import_module('config')
+except Exception as e:
+    print(e)
+    print('Please make [config.py] and put it with twitchTransFN')
+    input() # stop for error!!
 
 TargetLangs = ["af", "sq", "am", "ar", "hy", "az", "eu", "be", "bn", "bs", "bg", "ca", "ceb", "ny", "zh-CN", "zh-TW", "co",
                 "hr", "cs", "da", "nl", "en", "eo", "et", "tl", "fi", "fr", "fy", "gl", "ka", "de", "el", "gu", "ht", "ha",
@@ -88,36 +76,9 @@ TargetLangs = ["af", "sq", "am", "ar", "hy", "az", "eu", "be", "bn", "bs", "bg",
                 "pl", "pt", "ma", "ro", "ru", "sm", "gd", "sr", "st", "sn", "sd", "si", "sk", "sl", "so", "es", "su", "sw",
                 "sv", "tg", "ta", "te", "th", "tr", "uk", "ur", "uz", "vi", "cy", "xh", "yi", "yo", "zu"]
 
-##########################################
-# load config text #######################
-import importlib
-
-# For [directly run from Python script at Windows, MacOS] -----------------------
-try:
-    sys.path.append(os.path.join(os.path.dirname(sys.argv[0])))
-    config = importlib.import_module('config')
-except Exception as e:
-    print(e)
-    print('Please make [config.py] and put it with twitchTransFN')
-    input() # stop for error!!
-
 deepl_lang_dict = config.DeeplTrans
+
 rep_words       = config.Replace_Words
-###################################
-# fix some config errors ##########
-# lowercase channel and username ------
-config.Twitch_Channel = config.Twitch_Channel.lower()
-config.Trans_Username = config.Trans_Username.lower()
-
-# remove "#" mark ------
-if config.Twitch_Channel.startswith('#'):
-    # print("Find # mark at channel name! I remove '#' from 'config:Twitch_Channel'")
-    config.Twitch_Channel = config.Twitch_Channel[1:]
-
-# remove "oauth:" mark ------
-if config.Trans_OAUTH.startswith('oauth:'):
-    # print("Find 'oauth:' at OAUTH text! I remove 'oauth:' from 'config:Trans_OAUTH'")
-    config.Trans_OAUTH = config.Trans_OAUTH[6:]
 
 # 無視言語リストの準備 ################
 Ignore_Lang = [x.strip() for x in config.Ignore_Lang]
@@ -135,10 +96,13 @@ Ignore_Line = [x.strip() for x in config.Ignore_Line]
 Delete_Words = [x.strip() for x in config.Delete_Words]
 
 # suffixのチェック、google_trans_newインスタンス生成
-if GoogleTranslate_suffix not in URL_SUFFIX_LIST:
-    url_suffix = 'co.jp'
+if hasattr(config, 'GoogleTranslate_suffix'):
+    if config.GoogleTranslate_suffix not in URL_SUFFIX_LIST:
+        url_suffix = 'co.jp'
+    else:
+        url_suffix = config.GoogleTranslate_suffix
 else:
-    url_suffix = GoogleTranslate_suffix
+    url_suffix = 'co.jp'
 
 translator = AsyncTranslator(url_suffix=url_suffix)
 
@@ -148,9 +112,9 @@ translator = AsyncTranslator(url_suffix=url_suffix)
 
 #####################################
 # Google Apps Script 翻訳
-def GAS_Trans(text, lang_source, lang_target):
-    if(text is None):
-        print("[GAS_Trans] text is empty")
+async def GAS_Trans(session, text, lang_source, lang_target):
+    if text is None:
+        config.Debug: print("[GAS_Trans] text is empty")
         return False
 
     url = config.GAS_URL
@@ -163,14 +127,13 @@ def GAS_Trans(text, lang_source, lang_target):
         'Content-Type': 'application/json',
     }
 
-    response = requests.post(url, data=json.dumps(payload), headers=headers)
-
-    if(response.status_code == 200):
-        print("[GAS_Trans] post success!")
-        return response.text
-
-    print("[GAS_Trans] post failed...")
-    return False
+    async with session.post(url, json=payload, headers=headers) as res:
+        if res.status == 200:
+            if config.Debug: print("[GAS_Trans] post success!")
+            return await res.text()
+        else:
+            if config.Debug: print("[GAS_Trans] post failed...")
+        return False
 
 
 
@@ -182,41 +145,22 @@ def trans_word(inputtext):
     replacements = config.Replace_Words
     return re.sub('({})'.format('|'.join(map(re.escape, replacements.keys()))), lambda m: replacements[m.group()], inputtext)
 
-async def DeeplTrans(mes,lang_dest, lang_detect):
-    try:
-        if lang_detect in deepl_lang_dict.keys() and lang_dest in deepl_lang_dict.keys():
-            translatedText = deepl.translate(source_language=deepl_lang_dict[lang_detect], target_language=deepl_lang_dict[lang_dest], text=mes)
-            if config.Debug: print(f'[DeepL Tlanslate]({deepl_lang_dict[lang_detect]} > {deepl_lang_dict[lang_dest]})')
-        elif not config.GAS_URL:
-            translatedText = await translator.translate(mes, lang_dest)
-            if config.Debug: print('[Google Tlanslate]')
-        else:
-            translatedText = GAS_Trans(mes, '', lang_dest)
-            if config.Debug: print('[Google Tlanslate (Google Apps Script)]')
-        return(translatedText)
-    except Exception as e:
-        if config.Debug: print(e)
-
-
 class Bot(commands.Bot):
 
     def __init__(self):
         super().__init__(
-            token               = "oauth:" + config.Trans_OAUTH,
-            client_id           = "",
-            nick                = config.Trans_Username,
+            token               = config.Trans_OAUTH,
             prefix              = "!",
             initial_channels    = [config.Twitch_Channel]
         )
 
     # 起動時 ####################
-    async def event_ready(self):
+    async def event_channel_joined(self, channel):
         'Called once when the bot goes online.'
-        print(f"{config.Trans_Username} is online!")
-        channel = self.get_channel(config.Twitch_Channel)
-        if config.Trans_TextColor != '':
+        print(f"{self.nick} is online!")
+        if not config.Trans_TextColor == '':
             await channel.send(f"/color {config.Trans_TextColor}")
-        if config.Start_Message != '':
+        if not config.Start_Message == '':
             await channel.send(config.Start_Message)
 
     # メッセージを受信したら ####################
@@ -239,8 +183,11 @@ class Bot(commands.Bot):
         message = msg.content
         user    = msg.author.name.lower()
 
+        if config.Ignore_Only_ww:
+            message = re.sub('^w*w$','',msg.content)
+
         # 無視ユーザリストチェック -------------
-        print('USER:{}'.format(user))
+        if config.Debug: print('USER:{}'.format(user))
         if user in Ignore_Users:
             return
 
@@ -248,10 +195,6 @@ class Bot(commands.Bot):
         for w in Ignore_Line:
             if w in message:
                 return
-
-        # 削除単語リストチェック --------------
-        for w in Delete_Words:
-            message = message.replace(w, '')
 
         # emoteの削除 --------------------------
         # エモート抜き出し
@@ -289,23 +232,26 @@ class Bot(commands.Bot):
 
                 # message(msg.contextの編集用変数)から，エモート削除
                 if config.Debug: print(f'message with emote:{message}')
-                restxt = ''
-                for w in emote_list:
-                    restxt = restxt + w + " "
+                for w in sorted(emote_list, key=len, reverse=True):
+                    if config.Debug: print(w)
                     message = message.replace(w, '')
 
-                print(restxt)
+                if config.Debug: print(f'message without emote:{message}')
+
+        # 削除単語リストチェック --------------
+        for w in Delete_Words:
+            message = message.replace(w, '')
+
+        # @ユーザー名を削除
+        message = re.sub(r'@\S+', '', message)
 
         # 複数空文字を一つにまとめる --------
         message = " ".join( message.split() )
 
-        if config.Ignore_Only_ww:
-            message = re.sub('^w*w$','',message)
-            if message == '':
-                return
-
-        # 削除単語リストチェック --------------
         message = trans_word(message)
+
+        if not message:
+            return
 
         # 入力 --------------------------
         in_text = message
@@ -316,7 +262,7 @@ class Bot(commands.Bot):
         lang_detect = ''
 
         # use google_trans_new ---
-        if (not config.GAS_URL or config.Translator == 'deepl'):
+        if not config.GAS_URL or config.Translator == 'deepl':
             try:
                 detected = await translator.detect(in_text)
                 lang_detect = detected[0]
@@ -326,8 +272,8 @@ class Bot(commands.Bot):
         # use GAS ---
         else:
             try:
-                tlans_text = GAS_Trans(in_text, '', config.lang_TransToHome)
-                if tlans_text == in_text:
+                trans_text = await GAS_Trans(self._http.session, in_text, '', config.lang_TransToHome)
+                if trans_text == in_text:
                     lang_detect = config.lang_TransToHome
                 else:
                     lang_detect = 'GAS'
@@ -357,11 +303,7 @@ class Bot(commands.Bot):
 
         # 検出言語と翻訳先言語が同じだったら無視！
         if lang_detect == lang_dest:
-                if config.Debug:
-                    print("No Translate")
-                    return
-                else:
-                    return
+            return
 
         ################################
         # 翻訳 --------------------------
@@ -370,43 +312,54 @@ class Bot(commands.Bot):
 
         # use deepl --------------
         # (try to use deepl, but if the language is not supported, text will be translated by google!)
-        if lang_detect != '':
-            if config.Translator == 'deepl':
-                translatedText = await DeeplTrans(in_text, lang_dest, lang_detect)
-            # NOT use deepl ----------
-            elif config.Translator == 'google':
-                # use google_trans_new ---
-                if not config.GAS_URL:
-                    try:
-                        translatedText = await translator.translate(in_text, lang_dest)
-                        if config.Debug: print('[Google Tlanslate (google_trans_new)]')
-                    except Exception as e:
-                        if config.Debug: print(e)
-
-                # use GAS ---
+        if config.Translator == 'deepl':
+            try:
+                if lang_detect in deepl_lang_dict.keys() and lang_dest in deepl_lang_dict.keys():
+                    translatedText = (
+                        await asyncio.gather(asyncio.to_thread(deepl.translate, source_language= deepl_lang_dict[lang_detect], target_language=deepl_lang_dict[lang_dest], text=in_text))
+                        )[0]
+                    if config.Debug: print(f'[DeepL Tlanslate]({deepl_lang_dict[lang_detect]} > {deepl_lang_dict[lang_dest]})')
                 else:
-                    try:
-                        translatedText = GAS_Trans(in_text, '', lang_dest)
-                        if config.Debug: print('[Google Tlanslate (Google Apps Script)]')
-                    except Exception as e:
-                        if config.Debug: print(e)
+                    if not config.GAS_URL:
+                        try:
+                            translatedText = await translator.translate(in_text, lang_dest)
+                            if config.Debug: print('[Google Tlanslate (google_trans_new)]')
+                        except Exception as e:
+                            if config.Debug: print(e)
+                    else:
+                        try:
+                            translatedText = await GAS_Trans(self._http.session, in_text, '', lang_dest)
+                            if config.Debug: print('[Google Tlanslate (Google Apps Script)]')
+                        except Exception as e:
+                            if config.Debug: print(e)
+            except Exception as e:
+                if config.Debug: print(e)
 
+        # NOT use deepl ----------
+        elif config.Translator == 'google':
+            # use google_trans_new ---
+            if not config.GAS_URL:
+                try:
+                    translatedText = await translator.translate(in_text, lang_dest)
+                    if config.Debug: print('[Google Tlanslate (google_trans_new)]')
+                except Exception as e:
+                    if config.Debug: print(e)
+
+            # use GAS ---
             else:
-                print(f'ERROR: config TRANSLATOR is set the wrong value with [{config.Translator}]')
-                return                  
+                try:
+                    translatedText = await GAS_Trans(self._http.session, in_text, '', lang_dest)
+                    if config.Debug: print('[Google Tlanslate (Google Apps Script)]')
+                except Exception as e:
+                    if config.Debug: print(e)
+
         else:
-            translatedText = ""
-            if config.Debug:
-                print("No Translate")
-                return
-            else:
-                return
+            print(f'ERROR: config TRANSLATOR is set the wrong value with [{config.Translator}]')
+            return
 
         # チャットへの投稿 ----------------
         # 投稿内容整形 & 投稿
         out_text = translatedText
-        if out_text == '':
-           return
         if config.Show_ByName:
             out_text = '{} [by {}]'.format(out_text, user)
         if config.Show_ByLang:
@@ -417,68 +370,19 @@ class Bot(commands.Bot):
 
         await msg.channel.send("/me " + out_text)
 
-        print()                  
-
+    ##############################
+    # コマンド ####################
     @commands.command(name='ver')
     async def ver(self, ctx):
-        await ctx.send('ttfn_custom ver : ' + version)
+        await ctx.send('this is tTFN. ver: ' + version)
 
     @commands.command(name='des')
     async def des(self, ctx):
-        await ctx.send(version + ' : ' + description)
-
-bot = Bot()
-
-#####################################
-# 最後のクリーンアップ処理 -------------
-def cleanup():
-    print("!!!Clean up!!!")
-
-    # Cleanup処理いろいろ
-
-    time.sleep(1)
-    print("!!!Clean up Done!!!")
-
-#####################################
-# sig handler  -------------
-def sig_handler(signum, frame) -> None:
-    sys.exit(1)
-
-#####################################
-# _MEI cleaner  -------------
-# Thanks to Sadra Heydari @ https://stackoverflow.com/questions/57261199/python-handling-the-meipass-folder-in-temporary-folder
-import glob
-import sys
-import os
-from shutil import rmtree
-
-def CLEANMEIFOLDERS():
-    try:
-        base_path = sys._MEIPASS
-
-    except Exception:
-        base_path = os.path.abspath(".")
-
-    if config.Debug: print(f'_MEI base path: {base_path}')
-    base_path = base_path.split("\\")
-    base_path.pop(-1)
-    temp_path = ""
-    for item in base_path:
-        temp_path = temp_path + item + "\\"
-
-    mei_folders = [f for f in glob.glob(temp_path + "**/", recursive=False)]
-    for item in mei_folders:
-        if item.find('_MEI') != -1 and item != sys._MEIPASS + "\\":
-            rmtree(item)
+        await ctx.send(version+':'+description)
 
 # メイン処理 ###########################
 def main():
-    signal.signal(signal.SIGTERM, sig_handler)
-
     try:
-        # 以前に生成された _MEI フォルダを削除する
-        CLEANMEIFOLDERS()
-
         # 初期表示 -----------------------
         print('twitchTransFreeNext (Version: {})'.format(version))
         print('Connect to the channel   : {}'.format(config.Twitch_Channel))
@@ -491,22 +395,13 @@ def main():
             print(f'Translate using Google Apps Script')
             if config.Debug: print(f'GAS URL: {config.GAS_URL}')
 
-        # 作業用ディレクトリ削除 ＆ 作成 ----
         # bot
+        bot = Bot()
         bot.run()
-
 
     except Exception as e:
         if config.Debug: print(e)
-        input() # stop for error!!
-
-    finally:
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-        cleanup()
-        signal.signal(signal.SIGTERM, signal.SIG_DFL)
-        signal.signal(signal.SIGINT, signal.SIG_DFL)
-
 
 if __name__ == "__main__":
-    sys.exit(main())
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    main()

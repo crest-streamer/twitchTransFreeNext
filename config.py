@@ -63,7 +63,7 @@ Start_Message           = ''
 
 # if you want replace word then setting this. example:{'befour':'after','befour2':'after2'}
 # 置換したい単語の組み合わせを{'置換前':'置換後','置換前2':'置換後2'}の形式で入力してください。
-Replace_Words           = {}
+Replace_Words           = {'':''}
 
 # Select the translate engine ('deepl' or 'google')
 Translator              = 'deepl'

@@ -2,4 +2,3 @@ async_google_trans_new==1.4.5
 deepl-translate==1.2.0
 twitchio==2.3.0
 pywin32;platform_system == 'Windows'
-AppKit;platform_system == 'Darwin'

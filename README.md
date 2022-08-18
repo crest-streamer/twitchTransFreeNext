@@ -14,7 +14,7 @@ To run on Linux<br />
 twitchTransFN_linux.tar.gz<br />
 <br /><br />
 To run on any OS with Python<br />
-twitchTransFreeNext_python.zip
+twitchTransFN_python.zip
 
 # memo
 ## support language (google translator)
@@ -74,7 +74,7 @@ twitchTransFN_macos.tar.gz<br />
 Linuxの方は下記を<br />
 twitchTransFN_linux.tar.gz<br />
 <br /><br />
-OS問わずPythonで実行する方は「twitchTransFreeNext_python.zip」を<br />
+OS問わずPythonで実行する方は「twitchTransFN_python.zip」を<br />
 ダウンロードして下さい。
 
 # memo

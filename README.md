@@ -7,7 +7,11 @@ Original ttfn(twitchtransFN) is here https://github.com/sayonari/twitchTransFree
 # Download
 [latest Release](https://github.com/crest-streamer/twitchTransFreeNext/releases/latest)<br />
 To run on Windows 7 or later<br />
-twitchTransFreeNext_windows.zip<br />
+twitchTransFN_windows.zip<br />
+To run on MacOS Intel Chip<br />
+twitchTransFN_macos.tar.gz<br />
+To run on Linux<br />
+twitchTransFN_linux.tar.gz<br />
 <br /><br />
 To run on any OS with Python<br />
 twitchTransFreeNext_python.zip
@@ -63,7 +67,13 @@ if completed edit then Overwrite.
 
 # ダウンロード
 [最新版](https://github.com/crest-streamer/twitchTransFreeNext/releases/latest)<br />
-Windowsの方は「twitchTransFreeNext_windows.zip」を<br /><br />
+Windows7以降の方は下記を<br />
+twitchTransFN_windows.zip<br />
+MacOS(Intelチップ)の方は下記を<br />
+twitchTransFN_macos.tar.gz<br />
+Linuxの方は下記を<br />
+twitchTransFN_linux.tar.gz<br />
+<br /><br />
 OS問わずPythonで実行する方は「twitchTransFreeNext_python.zip」を<br />
 ダウンロードして下さい。
 

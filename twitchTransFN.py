@@ -9,7 +9,7 @@ import threading
 import time
 import shutil
 import re
-
+import glob
 import asyncio
 import deepl
 
@@ -18,9 +18,10 @@ from twitchio.ext import commands
 import sys
 import signal
 
-version = 'c1.0.6'
-description = 'v2.5.0をベースに再度ソース書き換え'
+version = 'c1.0.7'
+description = '_MEIフォルダを削除する処理を戻し'
 '''
+c1.0.7  : - _MEIフォルダを削除する処理を戻し
 c1.0.6  : - v2.5.0をベースに再度ソース書き換え
 v2.5.0  : - 実行バイナリをリポジトリに含めず，ActionsでReleaseするように変更（yuniruyuni先生，ちゃらひろ先生による）
           - 様々なバグ修正（ちゃらひろせんせいによる）
@@ -380,9 +381,29 @@ class Bot(commands.Bot):
     async def des(self, ctx):
         await ctx.send(version+':'+description)
 
+def CLEANMEIFOLDERS():
+    try:
+        base_path = sys._MEIPASS
+
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    if config.Debug: print(f'_MEI base path: {base_path}')
+    base_path = base_path.split("\\")
+    base_path.pop(-1)
+    temp_path = ""
+    for item in base_path:
+        temp_path = temp_path + item + "\\"
+
+    mei_folders = [f for f in glob.glob(temp_path + "**/", recursive=False)]
+    for item in mei_folders:
+        if item.find('_MEI') != -1 and item != sys._MEIPASS + "\\":
+            shutil.rmtree(item)
+
 # メイン処理 ###########################
 def main():
     try:
+        CLEANMEIFOLDERS()
         # 初期表示 -----------------------
         print('twitchTransFreeNext (Version: {})'.format(version))
         print('Connect to the channel   : {}'.format(config.Twitch_Channel))

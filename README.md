@@ -8,6 +8,8 @@ Original ttfn(twitchtransFN) is here https://github.com/sayonari/twitchTransFree
 [latest Release](https://github.com/crest-streamer/twitchTransFreeNext/releases/latest)<br />
 To run on Windows 7 or later<br />
 twitchTransFN_windows.zip<br />
+If Security Soft Block then try<br />
+twitchTransFN_win_pyinstallerfix<br />
 To run on MacOS Intel Chip<br />
 twitchTransFN_macos.tar.gz<br />
 To run on Linux<br />
@@ -49,10 +51,11 @@ if completed edit then Overwrite.
   <li>Add setting to convert specific words to specified words</li>
   <li>Add setting W-only comments are not translated</li>
   <li>Add "!des" command. this is Chat about the last update description</li>
+  <li>Add setting sdtd_Mode(for 7Days to Die)</li>
   <hr>
 
 # How to Execute with Python
-1.Install Python3.x(Developer's operating environment is Python 3.9.13)<br>
+1.Install Python3.x(Developer's operating environment is Python 3.11.0)<br>
 2.run command with Command Pronpt/Terminal # pip(or pip3 or pip3.x) install -r requirements.txt<br />
 3.run command with Command Pronpt/Terminal # python(or python3 or python3.x) twitchTransFN.py<br />
 4.If it translates after a test chat, it is a success. enjoy!<br />
@@ -69,6 +72,8 @@ if completed edit then Overwrite.
 [最新版](https://github.com/crest-streamer/twitchTransFreeNext/releases/latest)<br />
 Windows7以降の方は下記を<br />
 twitchTransFN_windows.zip<br />
+もしセキュリティソフトがウィルスと判定される場合は以下をお試しください。<br />
+twitchTransFN_win_pyinstallerfix.zip<br />
 MacOS(Intelチップ)の方は下記を<br />
 twitchTransFN_macos.tar.gz<br />
 Linuxの方は下記を<br />
@@ -103,10 +108,11 @@ config.pyをメモ帳等で開き、編集して保存してください。<br /
   <li>特定の単語を指定した単語に変換する設定の追加</li>
   <li>wのみのコメントを翻訳しない設定の追加</li>
   <li>!desコマンドの追加(最新のverup情報をコメントします)</li>
+  <li>sdtd_Modeの設定を追加(7Days to Die用モード)</li>
 <hr>
     
 # Pythonでの実行方法
-1.Python3.xをインストールします。(開発者の動作環境は3.9.13です)<br />
+1.Python3.xをインストールします。(開発者の動作環境は3.11.0です)<br />
 2.「pip(or pip3 or pip3.x) install -r requirements.txt」をコマンドプロンプト/ターミナル/端末で実行します。<br />
 3.「python(or python3 or python3.x) twitchTransFN.py」をコマンドプロンプト/ターミナル/端末で実行します。<br />
 4.テストチャットをして翻訳されれば成功です。<br />

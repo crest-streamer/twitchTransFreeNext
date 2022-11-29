@@ -72,6 +72,11 @@ Translator              = 'deepl'
 # wのみ(w以降wが続くだけ)のコメントは翻訳しない=True、翻訳する=False
 Ignore_Only_ww          = True
 
+# Do not translate comments starting with "#" and if comments in "[7DTD]" then not translate=True, go translate=False
+# ex.#enemy
+# #から始まるコメントと[7DTD]が含まれるコメントは翻訳しない=True、翻訳する=False(7days to die向けオプション)
+sdtd_Mode               = False
+
 # This Setting's Only Translate DeepL
 # ここで設定した言語はDeepLで翻訳し、設定されていない言語はGoogle(もしくはGAS)で翻訳します。
 # Default DeeplTrans    = {'de':'DE', 'en':'EN', 'fr':'FR', 'es':'ES', 'pt':'PT', 'it':'IT', 'nl':'NL', 'pl':'PL', 'ru':'RU', 'ja':'JA', 'zh-CN':'ZH'}

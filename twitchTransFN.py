@@ -18,9 +18,10 @@ from twitchio.ext import commands
 import sys
 import signal
 
-version = 'c1.0.7'
-description = '_MEIフォルダを削除する処理を戻し'
+version = 'c1.0.8'
+description = 'sdtd_Mode追加(7Days to die向け翻訳無視オプション)'
 '''
+c1.0.8  : - sdtd_Mode追加(7Days to die向け翻訳無視オプション)
 c1.0.7  : - _MEIフォルダを削除する処理を戻し
 c1.0.6  : - v2.5.0をベースに再度ソース書き換え
 v2.5.0  : - 実行バイナリをリポジトリに含めず，ActionsでReleaseするように変更（yuniruyuni先生，ちゃらひろ先生による）
@@ -186,6 +187,11 @@ class Bot(commands.Bot):
 
         if config.Ignore_Only_ww:
             message = re.sub('^w*w$','',msg.content)
+            message = re.sub('^ｗ*ｗ$','',message)
+
+        if config.sdtd_Mode:
+            message = re.sub('^#.*','',message)
+            message = re.sub('.*[7DTD].*',message)
 
         # 無視ユーザリストチェック -------------
         if config.Debug: print('USER:{}'.format(user))

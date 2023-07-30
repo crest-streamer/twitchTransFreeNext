@@ -77,6 +77,10 @@ Ignore_Only_ww          = True
 # #から始まるコメントと[7DTD]が含まれるコメントは翻訳しない=True、翻訳する=False(7days to die向けオプション)
 sdtd_Mode               = False
 
+# Mode to not post translations in the comments section. do post=True, not post=False 
+# 翻訳をコメント欄に投稿しないモード。投稿する=True、投稿しない=False
+sendmode                = False
+
 # This Setting's Only Translate DeepL
 # ここで設定した言語はDeepLで翻訳し、設定されていない言語はGoogle(もしくはGAS)で翻訳します。
 # Default DeeplTrans    = {'de':'DE', 'en':'EN', 'fr':'FR', 'es':'ES', 'pt':'PT', 'it':'IT', 'nl':'NL', 'pl':'PL', 'ru':'RU', 'ja':'JA', 'zh-CN':'ZH'}

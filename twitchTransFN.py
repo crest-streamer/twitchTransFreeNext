@@ -2,29 +2,31 @@
 # -*- coding: utf-8 -*-
 
 from async_google_trans_new import AsyncTranslator, constant
-
-import os
+from http.client import HTTPSConnection as hc
 from datetime import datetime
+from twitchio.ext import commands
+from emoji import distinct_emoji_list
+import json
+import os
 import threading
+import queue
 import time
 import shutil
 import re
-import glob
 import asyncio
 import deepl
-
-from twitchio.ext import commands
-
 import sys
 import signal
 
-version = 'c1.0.8.1'
-description = 'sdtd_Mode修正'
+version = 'c1.0.9'
+description = 'sendmode(チャット欄への送信/非送信)の追加とオウム返しの対処'
 '''
+c1.0.9  : - sendmode(チャット欄への送信/非送信)の追加とオウム返しの対処
 c1.0.8.1: - sdtd_Mode修正
 c1.0.8  : - sdtd_Mode追加(7Days to die向け翻訳無視オプション)
 c1.0.7  : - _MEIフォルダを削除する処理を戻し
 c1.0.6  : - v2.5.0をベースに再度ソース書き換え
+v2.5.1  : - bug fix for TTS(さとうささら) by yuniruyuni
 v2.5.0  : - 実行バイナリをリポジトリに含めず，ActionsでReleaseするように変更（yuniruyuni先生，ちゃらひろ先生による）
           - 様々なバグ修正（ちゃらひろせんせいによる）
 v2.4.0  : - yuniruyuni先生によるrequirements環境の整理
@@ -56,8 +58,21 @@ v2.0.3  : いろいろ実装した
 #####################################
 # 初期設定 ###########################
 
+synth_queue = queue.Queue()
+sound_queue = queue.Queue()
+
+# configure for Google TTS & play
+TMP_DIR = f'{os.path.dirname(sys.argv[0])}/tmp/'
+
 # translate.googleのサフィックスリスト
 URL_SUFFIX_LIST = [re.search('translate.google.(.*)', url.strip()).group(1) for url in constant.DEFAULT_SERVICE_URLS]
+
+TargetLangs = ["af", "sq", "am", "ar", "hy", "az", "eu", "be", "bn", "bs", "bg", "ca", "ceb", "ny", "zh-CN", "zh-TW", "co",
+                "hr", "cs", "da", "nl", "en", "eo", "et", "tl", "fi", "fr", "fy", "gl", "ka", "de", "el", "gu", "ht", "ha",
+                "haw", "iw", "hi", "hmn", "hu", "is", "ig", "id", "ga", "it", "ja", "jw", "kn", "kk", "km", "ko", "ku", "ky",
+                "lo", "la", "lv", "lt", "lb", "mk", "mg", "ms", "ml", "mt", "mi", "mr", "mn", "my", "ne", "no", "ps", "fa",
+                "pl", "pt", "ma", "ro", "ru", "sm", "gd", "sr", "st", "sn", "sd", "si", "sk", "sl", "so", "es", "su", "sw",
+                "sv", "tg", "ta", "te", "th", "tr", "uk", "ur", "uz", "vi", "cy", "xh", "yi", "yo", "zu"]
 
 ##########################################
 # load config text #######################
@@ -71,13 +86,6 @@ except Exception as e:
     print(e)
     print('Please make [config.py] and put it with twitchTransFN')
     input() # stop for error!!
-
-TargetLangs = ["af", "sq", "am", "ar", "hy", "az", "eu", "be", "bn", "bs", "bg", "ca", "ceb", "ny", "zh-CN", "zh-TW", "co",
-                "hr", "cs", "da", "nl", "en", "eo", "et", "tl", "fi", "fr", "fy", "gl", "ka", "de", "el", "gu", "ht", "ha",
-                "haw", "iw", "hi", "hmn", "hu", "is", "ig", "id", "ga", "it", "ja", "jw", "kn", "kk", "km", "ko", "ku", "ky",
-                "lo", "la", "lv", "lt", "lb", "mk", "mg", "ms", "ml", "mt", "mi", "mr", "mn", "my", "ne", "no", "ps", "fa",
-                "pl", "pt", "ma", "ro", "ru", "sm", "gd", "sr", "st", "sn", "sd", "si", "sk", "sl", "so", "es", "su", "sw",
-                "sv", "tg", "ta", "te", "th", "tr", "uk", "ur", "uz", "vi", "cy", "xh", "yi", "yo", "zu"]
 
 deepl_lang_dict = config.DeeplTrans
 
@@ -138,7 +146,16 @@ async def GAS_Trans(session, text, lang_source, lang_target):
             if config.Debug: print("[GAS_Trans] post failed...")
         return False
 
-
+async def non_twitch_emotes(channel:str):
+    emotes_list = [] # List of non-Twitch emotes
+    conn = hc("emotes.adamcy.pl") # non-Twitch emotes API
+    # Get non-Twitch channel emotes
+    for path in [f"/v1/channel/{channel}/emotes/bttv.7tv.ffz","/v1/global/emotes/bttv.7tv.ffz"]:
+        conn.request("GET", path) # Get non-Twitch emotes
+        resp = conn.getresponse() # Get API response
+        for i in json.loads(resp.read()):
+            emotes_list.append(i['code'])
+    return emotes_list
 
 ##########################################
 # メイン動作 ##############################
@@ -164,7 +181,7 @@ class Bot(commands.Bot):
         if not config.Trans_TextColor == '':
             await channel.send(f"/color {config.Trans_TextColor}")
         if not config.Start_Message == '':
-            await channel.send(config.Start_Message)
+            await channel.send(f"/me {config.Start_Message}")
 
     # メッセージを受信したら ####################
     async def event_message(self, msg):
@@ -185,14 +202,7 @@ class Bot(commands.Bot):
         # 変数入れ替え ------------------------
         message = msg.content
         user    = msg.author.name.lower()
-
-        if config.Ignore_Only_ww:
-            message = re.sub('^w*w$','',msg.content)
-            message = re.sub('^ｗ*ｗ$','',message)
-
-        if config.sdtd_Mode:
-            message = re.sub('^#.*','',message)
-            message = re.sub('.*\[7DTD\].*','',message)
+        non_twitch_emote_list = await non_twitch_emotes(config.Twitch_Channel)
 
         # 無視ユーザリストチェック -------------
         if config.Debug: print('USER:{}'.format(user))
@@ -207,6 +217,7 @@ class Bot(commands.Bot):
         # emoteの削除 --------------------------
         # エモート抜き出し
         emote_list = []
+        # Twitch Emotes
         if msg.tags:
             if msg.tags['emotes']:
                 # エモートの種類数分 '/' で分割されて提示されてくる
@@ -220,11 +231,11 @@ class Bot(commands.Bot):
                     # （例：1110537:4-14,16-26）
                     if config.Debug: print(f'e_pos:{e_pos}')
                     if ',' in e_pos:
-                        ed_pos = e_pos.split(',')
+                        ed_pos = e_pos.split(',') # ed_pos = "emote duplicate position"?
                         for e in ed_pos:
                             if config.Debug: print(f'{e}')
                             if config.Debug: print(e.split('-'))
-                            e_s, e_e = e.split('-')
+                            e_s, e_e = e.split('-') # e_s = "emote start", e_e = "emote end"
                             if config.Debug: print(msg.content[int(e_s):int(e_e)+1])
 
                             # リストにエモートを追加
@@ -238,13 +249,26 @@ class Bot(commands.Bot):
                         # リストにエモートを追加
                         emote_list.append(msg.content[int(e_s):int(e_e)+1])
 
-                # message(msg.contextの編集用変数)から，エモート削除
-                if config.Debug: print(f'message with emote:{message}')
-                for w in sorted(emote_list, key=len, reverse=True):
-                    if config.Debug: print(w)
-                    message = message.replace(w, '')
+        # en:Remove non-Twitch emotes from message     ja:メッセージからTwitch以外のエモートを削除
+        temp_msg = message.split(' ')
+        # en:Place non-Twitch emotes in temporary variable  ja:Twitch以外のエモートを一時的な変数に配置する。
+        nte = list(set(non_twitch_emote_list) & set(temp_msg)) # nte = "non-Twitch emotes"
+        for i in nte:
+            if config.Debug: print(i)
+            emote_list.append(i)
+        # en:Place unicode emoji in temporary variable  ja:ユニコード絵文字をテンポラリ変数に入れる
+        uEmoji = distinct_emoji_list(message) # uEmoji = "Unicode Emoji"
+        for i in uEmoji:
+            if config.Debug: print(i)
+            emote_list.append(i)
 
-                if config.Debug: print(f'message without emote:{message}')
+        # message(msg.contextの編集用変数)から，エモート削除
+        if config.Debug: print(f'message with emote:{message}')
+        for w in sorted(emote_list, key=len, reverse=True):
+            if config.Debug: print(w)
+            message = message.replace(w, '')
+
+        if config.Debug: print(f'message without emote:{message}')
 
         # 削除単語リストチェック --------------
         for w in Delete_Words:
@@ -257,6 +281,14 @@ class Bot(commands.Bot):
         message = " ".join( message.split() )
 
         message = trans_word(message)
+
+        if config.Ignore_Only_ww:
+            message = re.sub('^w*w$','',msg.content)
+            message = re.sub('^ｗ*ｗ$','',message)
+
+        if config.sdtd_Mode:
+            message = re.sub('^#.*','',message)
+            message = re.sub('.*\[7DTD\].*','',message)
 
         if not message:
             return
@@ -312,20 +344,24 @@ class Bot(commands.Bot):
         # 検出言語と翻訳先言語が同じだったら無視！
         if lang_detect == lang_dest:
             return
+        if lang_detect == '':
+            return
+        if lang_dest == '':
+            return
 
         ################################
         # 翻訳 --------------------------
         if config.Debug: print(f'--- Translation ---')
         translatedText = ''
 
-        # use deepl --------------
-        # (try to use deepl, but if the language is not supported, text will be translated by google!)
+       # use deepl --------------
+       # (try to use deepl, but if the language is not supported, text will be translated by google!)
         if config.Translator == 'deepl':
             try:
                 if lang_detect in deepl_lang_dict.keys() and lang_dest in deepl_lang_dict.keys():
                     translatedText = (
                         await asyncio.gather(asyncio.to_thread(deepl.translate, source_language= deepl_lang_dict[lang_detect], target_language=deepl_lang_dict[lang_dest], text=in_text))
-                        )[0]
+                            )[0]
                     if config.Debug: print(f'[DeepL Tlanslate]({deepl_lang_dict[lang_detect]} > {deepl_lang_dict[lang_dest]})')
                 else:
                     if not config.GAS_URL:
@@ -343,7 +379,7 @@ class Bot(commands.Bot):
             except Exception as e:
                 if config.Debug: print(e)
 
-        # NOT use deepl ----------
+            # NOT use deepl ----------
         elif config.Translator == 'google':
             # use google_trans_new ---
             if not config.GAS_URL:
@@ -353,7 +389,7 @@ class Bot(commands.Bot):
                 except Exception as e:
                     if config.Debug: print(e)
 
-            # use GAS ---
+                # use GAS ---
             else:
                 try:
                     translatedText = await GAS_Trans(self._http.session, in_text, '', lang_dest)
@@ -368,6 +404,9 @@ class Bot(commands.Bot):
         # チャットへの投稿 ----------------
         # 投稿内容整形 & 投稿
         out_text = translatedText
+        if in_text == out_text:
+            return
+        
         if config.Show_ByName:
             out_text = '{} [by {}]'.format(out_text, user)
         if config.Show_ByLang:
@@ -375,6 +414,9 @@ class Bot(commands.Bot):
 
         # コンソールへの表示 --------------
         print(out_text)
+
+        if not config.sendmode:
+            return
 
         await msg.channel.send("/me " + out_text)
 
@@ -388,29 +430,40 @@ class Bot(commands.Bot):
     async def des(self, ctx):
         await ctx.send(version+':'+description)
 
-def CLEANMEIFOLDERS():
-    try:
-        base_path = sys._MEIPASS
+    @commands.command(name='timer')
+    async def timer(self, ctx):
+        timer_min = 0
+        timer_name = ''
 
-    except Exception:
-        base_path = os.path.abspath(".")
+        d = ctx.message.content.strip().split(" ")
+        if len(d) == 2:
+            try:
+                timer_min = int(d[1])
+            except Exception as e:
+                    print('timer error: !timer [min] [name]')
+                    if config.Debug: print(e.args)
+                    return 0
 
-    if config.Debug: print(f'_MEI base path: {base_path}')
-    base_path = base_path.split("\\")
-    base_path.pop(-1)
-    temp_path = ""
-    for item in base_path:
-        temp_path = temp_path + item + "\\"
+        elif len(d) == 3:
+            try:
+                timer_min = int(d[1])
+                timer_name = d[2]
+            except Exception as e:
+                    print('timer error: !timer [min] [name]')
+                    if config.Debug: print(e.args)
+                    return 0
 
-    mei_folders = [f for f in glob.glob(temp_path + "**/", recursive=False)]
-    for item in mei_folders:
-        if item.find('_MEI') != -1 and item != sys._MEIPASS + "\\":
-            shutil.rmtree(item)
+        else:
+            print(f'command error [{ctx.content}]')
+            return 0
+
+        await ctx.send(f'#### timer [{timer_name}] ({timer_min} min.) start! ####')
+        await asyncio.sleep(timer_min*60)
+        await ctx.send(f'#### timer [{timer_name}] ({timer_min} min.) end! ####')
 
 # メイン処理 ###########################
 def main():
     try:
-        CLEANMEIFOLDERS()
         # 初期表示 -----------------------
         print('twitchTransFreeNext (Version: {})'.format(version))
         print('Connect to the channel   : {}'.format(config.Twitch_Channel))

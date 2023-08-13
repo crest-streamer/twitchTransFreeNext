@@ -35,14 +35,18 @@ NOTE: When rewriting config.txt, please delete the `#` mark at the beginning of 
 config.py</pre>
 <li>Execute with Python(Developer's operating environment is Python 3.9.13)</li>
 <pre>twitchTransFN.py
+build.py
 config.py
+database_controller.py
+sound.py
+tts.py
 requirements.txt</pre>
 please Edit config.py with notepad or any TextEditer.
 if completed edit then Overwrite.
 
 <hr>
 # Customize point
-  <li>Remove TTS related</li>
+  <li><s>Remove TTS related</s></li>
   <li>Can Edit Ready Message(original message is "has landed!" but this ver deleted)</li>
   if you want no message send then blank of Start_Message 
   <li>Enabled color selection</li>
@@ -52,6 +56,7 @@ if completed edit then Overwrite.
   <li>Add setting W-only comments are not translated</li>
   <li>Add "!des" command. this is Chat about the last update description</li>
   <li>Add setting sdtd_Mode(for 7Days to Die)</li>
+  <li>Add setting sendmode(if True then Send Chat/False then not Send Chat)</li>
   <hr>
 
 # How to Execute with Python
@@ -92,12 +97,16 @@ https://cloud.google.com/translate/docs/languages
 config.py</pre>
 <li>Pythonで動かす用ファイル</li>
 <pre>twitchTransFN.py
+build.py
 config.py
+database_controller.py
+sound.py
+tts.py
 requirements.txt</pre>
 config.pyをメモ帳等で開き、編集して保存してください。<br />
 
 # 変更点
-  <li>読み上げ機能関連を全削除
+  <li><s>読み上げ機能関連を全削除</s>c2.5.1_3で復活
   <li>準備完了時の「has landed!」チャットを削除。代わりに自分の入れたいメッセージを入力可能。<br />
     もし何もチャットしたくない場合は「Start_Message」の項目を「''」に設定してください。
   <li>色選択を自分で設定出来るように変更<br />
@@ -109,6 +118,7 @@ config.pyをメモ帳等で開き、編集して保存してください。<br /
   <li>wのみのコメントを翻訳しない設定の追加</li>
   <li>!desコマンドの追加(最新のverup情報をコメントします)</li>
   <li>sdtd_Modeの設定を追加(7Days to Die用モード)</li>
+  <li>sendmodeの設定を追加(翻訳後をチャット欄に送信する/しないモード)</li>
 <hr>
     
 # Pythonでの実行方法

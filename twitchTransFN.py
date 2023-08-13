@@ -3,29 +3,15 @@
 
 from async_google_trans_new import AsyncTranslator, constant
 from http.client import HTTPSConnection as hc
-from datetime import datetime
 from twitchio.ext import commands
 from emoji import distinct_emoji_list
-import json
-import os
-import threading
-import queue
-import time
-import shutil
-import re
-import asyncio
-import deepl
-import sys
-import signal
+import json, os, shutil, re, asyncio, deepl, sys, signal, tts, sound
+import database_controller as db # ja:既訳語データベース   en:Translation Database
 
-version = 'c1.0.9'
-description = 'sendmode(チャット欄への送信/非送信)の追加とオウム返しの対処'
+version = 'c2.5.1_3'
+description = 'didotb様の2.5.1_3(https://github.com/didotb/twitchTransFreeNext/releases/tag/v2.5.1_3)をベースに改造'
 '''
-c1.0.9  : - sendmode(チャット欄への送信/非送信)の追加とオウム返しの対処
-c1.0.8.1: - sdtd_Mode修正
-c1.0.8  : - sdtd_Mode追加(7Days to die向け翻訳無視オプション)
-c1.0.7  : - _MEIフォルダを削除する処理を戻し
-c1.0.6  : - v2.5.0をベースに再度ソース書き換え
+c2.5.1_3: - didotb様の2.5.1_3(https://github.com/didotb/twitchTransFreeNext/releases/tag/v2.5.1_3)をベースに改造
 v2.5.1  : - bug fix for TTS(さとうささら) by yuniruyuni
 v2.5.0  : - 実行バイナリをリポジトリに含めず，ActionsでReleaseするように変更（yuniruyuni先生，ちゃらひろ先生による）
           - 様々なバグ修正（ちゃらひろせんせいによる）
@@ -58,9 +44,6 @@ v2.0.3  : いろいろ実装した
 #####################################
 # 初期設定 ###########################
 
-synth_queue = queue.Queue()
-sound_queue = queue.Queue()
-
 # configure for Google TTS & play
 TMP_DIR = f'{os.path.dirname(sys.argv[0])}/tmp/'
 
@@ -87,8 +70,22 @@ except Exception as e:
     print('Please make [config.py] and put it with twitchTransFN')
     input() # stop for error!!
 
+###################################
+# fix some config errors ##########
+
+# convert depreated gTTS_In, gTTS_Out => TTS_in, TTS_Out ------
+if hasattr(config, 'gTTS_In') and not hasattr(config, 'TTS_In'):
+    print('[warn] gTTS_In is already deprecated, please use TTS_In instead.')
+    config.TTS_In = config.gTTS_In
+
+if hasattr(config, 'gTTS_Out') and not hasattr(config, 'TTS_Out'):
+    print('[warn] gTTS_Out is already deprecated, please use TTS_Out instead.')
+    config.TTS_Out = config.gTTS_Out
+
+# DeepLの翻訳言語リストをコンフィグから読み込み
 deepl_lang_dict = config.DeeplTrans
 
+# 単語置換リストをコンフィグから読み込み
 rep_words       = config.Replace_Words
 
 # 無視言語リストの準備 ################
@@ -116,6 +113,8 @@ else:
     url_suffix = 'co.jp'
 
 translator = AsyncTranslator(url_suffix=url_suffix)
+tts = tts.TTS(config)
+sound = sound.Sound(config)
 
 ##########################################
 # 関連関数 ################################
@@ -162,7 +161,7 @@ async def non_twitch_emotes(channel:str):
 ##########################################
 
 def trans_word(inputtext):
-    replacements = config.Replace_Words
+    replacements = rep_words
     return re.sub('({})'.format('|'.join(map(re.escape, replacements.keys()))), lambda m: replacements[m.group()], inputtext)
 
 class Bot(commands.Bot):
@@ -182,6 +181,7 @@ class Bot(commands.Bot):
             await channel.send(f"/color {config.Trans_TextColor}")
         if not config.Start_Message == '':
             await channel.send(f"/me {config.Start_Message}")
+
 
     # メッセージを受信したら ####################
     async def event_message(self, msg):
@@ -280,12 +280,15 @@ class Bot(commands.Bot):
         # 複数空文字を一つにまとめる --------
         message = " ".join( message.split() )
 
+        # 置換実施
         message = trans_word(message)
 
+        # Ignore_Only_wwが有効時、w(ｗ)しかないメッセージを削除
         if config.Ignore_Only_ww:
             message = re.sub('^w*w$','',msg.content)
             message = re.sub('^ｗ*ｗ$','',message)
 
+        # sdtd_Modeが有効時、7days to die用のメッセージを削除
         if config.sdtd_Mode:
             message = re.sub('^#.*','',message)
             message = re.sub('.*\[7DTD\].*','',message)
@@ -341,7 +344,12 @@ class Bot(commands.Bot):
 
         if config.Debug: print(f"lang_dest:{lang_dest} in_text:{in_text}")
 
-        # 検出言語と翻訳先言語が同じだったら無視！
+        # 音声合成（入力文） --------------
+        # if len(in_text) > int(config.TooLong_Cut):
+        #     in_text = in_text[0:int(config.TooLong_Cut)]
+        if config.TTS_In: tts.put(in_text, lang_detect)
+
+        # 検出言語と翻訳先言語が同じ、検出言語もしくは翻訳先言語が特定できない場合は無視！
         if lang_detect == lang_dest:
             return
         if lang_detect == '':
@@ -354,59 +362,66 @@ class Bot(commands.Bot):
         if config.Debug: print(f'--- Translation ---')
         translatedText = ''
 
-       # use deepl --------------
-       # (try to use deepl, but if the language is not supported, text will be translated by google!)
-        if config.Translator == 'deepl':
-            try:
-                if lang_detect in deepl_lang_dict.keys() and lang_dest in deepl_lang_dict.keys():
-                    translatedText = (
-                        await asyncio.gather(asyncio.to_thread(deepl.translate, source_language= deepl_lang_dict[lang_detect], target_language=deepl_lang_dict[lang_dest], text=in_text))
+        # en:Use database to reduce deepl limit     ja:データベースの活用でDeepLの字数制限を軽減
+        translation_from_database = await db.get(in_text,lang_dest) if in_text is not None else None
+
+        if translation_from_database is not None:
+            translatedText = translation_from_database[0]
+            if config.Debug: print(f'[Local Database](SQLite database file)')
+        elif (translation_from_database is None) and (in_text is not None):
+            # use deepl --------------
+            # (try to use deepl, but if the language is not supported, text will be translated by google!)
+            if config.Translator == 'deepl':
+                try:
+                    if lang_detect in deepl_lang_dict.keys() and lang_dest in deepl_lang_dict.keys():
+                        translatedText = (
+                            await asyncio.gather(asyncio.to_thread(deepl.translate, source_language= deepl_lang_dict[lang_detect], target_language=deepl_lang_dict[lang_dest], text=in_text))
                             )[0]
-                    if config.Debug: print(f'[DeepL Tlanslate]({deepl_lang_dict[lang_detect]} > {deepl_lang_dict[lang_dest]})')
-                else:
-                    if not config.GAS_URL:
-                        try:
-                            translatedText = await translator.translate(in_text, lang_dest)
-                            if config.Debug: print('[Google Tlanslate (google_trans_new)]')
-                        except Exception as e:
-                            if config.Debug: print(e)
+                        if config.Debug: print(f'[DeepL Tlanslate]({deepl_lang_dict[lang_detect]} > {deepl_lang_dict[lang_dest]})')
                     else:
-                        try:
-                            translatedText = await GAS_Trans(self._http.session, in_text, '', lang_dest)
-                            if config.Debug: print('[Google Tlanslate (Google Apps Script)]')
-                        except Exception as e:
-                            if config.Debug: print(e)
-            except Exception as e:
-                if config.Debug: print(e)
+                        if not config.GAS_URL:
+                            try:
+                                translatedText = await translator.translate(in_text, lang_dest)
+                                if config.Debug: print('[Google Tlanslate (google_trans_new)]')
+                            except Exception as e:
+                                if config.Debug: print(e)
+                        else:
+                            try:
+                                translatedText = await GAS_Trans(self._http.session, in_text, '', lang_dest)
+                                if config.Debug: print('[Google Tlanslate (Google Apps Script)]')
+                            except Exception as e:
+                                if config.Debug: print(e)
+                except Exception as e:
+                    if config.Debug: print(e)
 
             # NOT use deepl ----------
-        elif config.Translator == 'google':
-            # use google_trans_new ---
-            if not config.GAS_URL:
-                try:
-                    translatedText = await translator.translate(in_text, lang_dest)
-                    if config.Debug: print('[Google Tlanslate (google_trans_new)]')
-                except Exception as e:
-                    if config.Debug: print(e)
+            elif config.Translator == 'google':
+                # use google_trans_new ---
+                if not config.GAS_URL:
+                    try:
+                        translatedText = await translator.translate(in_text, lang_dest)
+                        if config.Debug: print('[Google Tlanslate (google_trans_new)]')
+                    except Exception as e:
+                        if config.Debug: print(e)
 
                 # use GAS ---
-            else:
-                try:
-                    translatedText = await GAS_Trans(self._http.session, in_text, '', lang_dest)
-                    if config.Debug: print('[Google Tlanslate (Google Apps Script)]')
-                except Exception as e:
-                    if config.Debug: print(e)
+                else:
+                    try:
+                        translatedText = await GAS_Trans(self._http.session, in_text, '', lang_dest)
+                        if config.Debug: print('[Google Tlanslate (Google Apps Script)]')
+                    except Exception as e:
+                        if config.Debug: print(e)
 
-        else:
-            print(f'ERROR: config TRANSLATOR is set the wrong value with [{config.Translator}]')
-            return
+            else:
+                print(f'ERROR: config TRANSLATOR is set the wrong value with [{config.Translator}]')
+                return
+
+            # en:Save the translation to database   ja:翻訳をデータベースに保存する
+            await db.save(in_text,translatedText,lang_dest)
 
         # チャットへの投稿 ----------------
         # 投稿内容整形 & 投稿
         out_text = translatedText
-        if in_text == out_text:
-            return
-        
         if config.Show_ByName:
             out_text = '{} [by {}]'.format(out_text, user)
         if config.Show_ByLang:
@@ -415,16 +430,29 @@ class Bot(commands.Bot):
         # コンソールへの表示 --------------
         print(out_text)
 
-        if not config.sendmode:
-            return
+        # sendmodeがFalseの場合送信しない
+        # en:If message is only emoji; then do not translate, and do not send a message
+        # ja:メッセージが絵文字だけの場合は、翻訳せず、メッセージを送らないでください
+        if in_text is not None:
+            if config.sendmode:
+                await msg.channel.send("/me " + out_text)
 
-        await msg.channel.send("/me " + out_text)
+        # 音声合成（出力文） --------------
+        # if len(translatedText) > int(config.TooLong_Cut):
+        #     translatedText = translatedText[0:int(config.TooLong_Cut)]
+        if config.TTS_Out: tts.put(translatedText, lang_dest)
+
 
     ##############################
     # コマンド ####################
     @commands.command(name='ver')
     async def ver(self, ctx):
         await ctx.send('this is tTFN. ver: ' + version)
+
+    @commands.command(name='sound')
+    async def sound(self, ctx):
+        sound_name = ctx.message.content.strip().split(" ")[1]
+        sound.put(sound_name)
 
     @commands.command(name='des')
     async def des(self, ctx):
@@ -476,6 +504,20 @@ def main():
             print(f'Translate using Google Apps Script')
             if config.Debug: print(f'GAS URL: {config.GAS_URL}')
 
+        # 作業用ディレクトリ削除 ＆ 作成 ----
+        if config.Debug: print("making tmp dir...")
+        if os.path.exists(TMP_DIR):
+            shutil.rmtree(TMP_DIR)
+
+        os.mkdir(TMP_DIR)
+        if config.Debug: print("made tmp dir.")
+
+        # 音声合成スレッド起動 ################
+        tts.run()
+
+        # 音声再生スレッド起動 ################
+        sound.run()
+
         # bot
         bot = Bot()
         bot.run()
@@ -486,3 +528,5 @@ def main():
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     main()
+    db.close()
+    db.delete()

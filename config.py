@@ -1,11 +1,11 @@
 ######################################################
 # PLEASE CHANGE FOLLOWING CONFIGS ####################
 # 翻訳を利用する配信チャンネルのIDを入力してください。
-Twitch_Channel          = 'Your Stream Channel ID'
+Twitch_Channel          = 'Enter Your Stream Channel ID'
 
 # If you have set a DisplayName, you must still enter your user name
 # 表示名を設定していても、ユーザーIDを入力してください。
-Trans_Username          = 'Your Translate User ID'
+Trans_Username          = 'Enter Your BOT ID'
 # Visit to https://twitchapps.com/tmi/ and Complete Connect with Your Trans_Username Account
 # https://twitchapps.com/tmi/ を開いて、Connectを押し、必要に応じて許可を押してoauthパスワードを入手してください。
 Trans_OAUTH             = 'oauth:'
@@ -22,6 +22,15 @@ Trans_TextColor         = ''
 # Please Enter Your Native Language. if When Other Language in Chat be able to Translation to Your Native Language
 # 設定した言語をベース言語とし、他言語からはデフォルトでベース言語に翻訳します。
 
+# Any emvironment, set it to `True`, then text will be read by TTS voice!
+# TTS_In:User Input Text, TTS_Out:Bot Output Text
+TTS_In                  = True
+TTS_Out                 = True
+TTS_Kind                = "gTTS" # You can choice "CeVIO" if you want to use CeVIO as TTS.
+# CeVIO_Cast            = "さとうささら" # When you are using CeVIO, you must set voice cast name.
+TTS_TextMaxLength		= 10
+TTS_MessageForOmitting = "以下略"
+
 # Language List is Get From https://cloud.google.com/translate/docs/languages and Please Set ISO-639-1 Code
 # 言語リストは https://cloud.google.com/translate/docs/languages ここで確認してください。
 # ISO-639-1 コード欄の文字を入力する必要があります。
@@ -35,6 +44,10 @@ lang_HomeToOther        = 'en'
 # If you hope Show Chatter's Name in TranslationChat be able to True. If not hope then Set False
 # 翻訳後チャットに、翻訳元チャットの発言者IDを表示したい場合はTrueを、しない場合はFalseを入力してください。
 Show_ByName             = True
+
+# if you make TTS for only few lang, please add langID in the list
+# for example, ['ja'] means Japanese only, ['ko','en'] means Korean and English are TTS!
+ReadOnlyTheseLang       = []
 
 # if you want the language of the source and the translated language to be displayed in the post-translation chat
 # then True if you do, or False if you don't
@@ -90,6 +103,11 @@ DeeplTrans              = {'de':'DE', 'en':'EN', 'fr':'FR', 'es':'ES', 'pt':'PT'
 # Use Google Apps Script for tlanslating
 # e.g.) GAS_URL         = 'https://script.google.com/macros/s/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/exec'
 GAS_URL                 = ''
+
+# Enter the suffix of the Google Translate URL you normally use.
+# Example: translate.google.co.jp -> 'co.jp'
+#          translate.google.com   -> 'com'
+GoogleTranslate_suffix  = 'co.jp'
 
 # If you meet any bugs, You can check some error message using Debug mode (Debug = True)
 Debug                   = False

@@ -3,7 +3,7 @@ name: build binaries
 on:
   push:
     tags:
-      - "v*"
+      - "c*"
 
 jobs:
   build_matrix:

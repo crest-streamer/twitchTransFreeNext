@@ -8,9 +8,10 @@ from emoji import distinct_emoji_list
 import json, os, shutil, re, asyncio, deepl, sys, signal, tts, sound
 import database_controller as db # ja:既訳語データベース   en:Translation Database
 
-version = 'c2.5.1_3'
-description = 'didotb様の2.5.1_3(https://github.com/didotb/twitchTransFreeNext/releases/tag/v2.5.1_3)をベースに改造'
+version = 'c2.5.1_4'
+description = 'emoteが翻訳されてしまう点を修正'
 '''
+c2.5.1_4: - emoteが翻訳されてしまう点を修正
 c2.5.1_3: - didotb様の2.5.1_3(https://github.com/didotb/twitchTransFreeNext/releases/tag/v2.5.1_3)をベースに改造
 v2.5.1  : - bug fix for TTS(さとうささら) by yuniruyuni
 v2.5.0  : - 実行バイナリをリポジトリに含めず，ActionsでReleaseするように変更（yuniruyuni先生，ちゃらひろ先生による）
@@ -285,7 +286,7 @@ class Bot(commands.Bot):
 
         # Ignore_Only_wwが有効時、w(ｗ)しかないメッセージを削除
         if config.Ignore_Only_ww:
-            message = re.sub('^w*w$','',msg.content)
+            message = re.sub('^w*w$','',message)
             message = re.sub('^ｗ*ｗ$','',message)
 
         # sdtd_Modeが有効時、7days to die用のメッセージを削除

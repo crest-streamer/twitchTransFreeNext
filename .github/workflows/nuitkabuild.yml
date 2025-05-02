@@ -39,10 +39,16 @@ jobs:
           pip install nuitka
           pip install -r requirements.txt
 
-      - name: Install pyobjc
+      - name: Install pyobjc (MacOS)
         if: matrix.os == 'macos-latest'
         run: | 
           pip install pyobjc
+
+      - name: Install build tools (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew update
+          brew install scons make gcc
 
       - name: Build Icon for macOS
         if: matrix.os == 'macos-latest'

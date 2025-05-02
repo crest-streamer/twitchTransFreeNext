@@ -91,6 +91,7 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y patchelf
           elif [[ "${{ matrix.os }}" == "centos-latest" ]]; then
+            sudo sed -i 's|http://mirror.centos.org/centos|http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Base.repo
             sudo yum install -y patchelf
           fi
 

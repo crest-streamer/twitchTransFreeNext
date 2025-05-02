@@ -51,7 +51,10 @@ def build_for_os(os_name, arch, add_data_option):
 
     # Windowsの場合、pywin32を追加
     if os_name == "windows":
-        include_modules.append("--include-package=pywin32")
+        include_modules.append("--include-module=win32api")
+        include_modules.append("--include-module=win32con")
+        include_modules.append("--include-module=win32com.client")
+        include_modules.append("--include-module=pythoncom")
 
     # macOSの場合、AppKitを試す（必要に応じて）
     if os_name == "macos":

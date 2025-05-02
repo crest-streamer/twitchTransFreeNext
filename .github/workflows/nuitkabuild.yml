@@ -62,6 +62,11 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install nuitka -r requirements.txt
 
+      - name: Install macOS-only dependencies
+        if: matrix.os == 'macos-latest'
+        run: |
+          pip install imageio
+
       - name: Download cacert.pem
         run: curl -o cacert.pem https://curl.se/ca/cacert.pem
 

@@ -156,14 +156,18 @@ jobs:
           $sourcePath = "dist/${{ matrix.bin }}"
           $extension = [System.IO.Path]::GetExtension($sourcePath)
           $targetPath = "dist/${archiveName}${extension}"
+
           if (-Not (Test-Path $sourcePath)) {
             Write-Error "File $sourcePath not found"
             exit 1
           }
-          Rename-Item -Path $sourcePath -NewName $targetPath
+
+          Move-Item -Path $sourcePath -Destination $targetPath
+
           if (Test-Path "${archiveName}.zip") {
             Remove-Item "${archiveName}.zip"
           }
+
           Compress-Archive -Path $targetPath -DestinationPath "${archiveName}.zip"
 
 

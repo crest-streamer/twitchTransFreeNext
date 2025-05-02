@@ -60,12 +60,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install nuitka zstandard -r requirements.txt
+          pip install nuitka -r requirements.txt
 
       - name: Convert .ico to .icns on macOS
         if: matrix.os == 'macos-latest'
         run: |
-          mkdir -p icon.iconset
+          mkdir icon.iconset
           sips -z 16 16     icon.png --out icon.iconset/icon_16x16.png
           sips -z 32 32     icon.png --out icon.iconset/icon_16x16@2x.png
           sips -z 32 32     icon.png --out icon.iconset/icon_32x32.png
@@ -75,8 +75,8 @@ jobs:
           sips -z 256 256   icon.png --out icon.iconset/icon_256x256.png
           sips -z 512 512   icon.png --out icon.iconset/icon_256x256@2x.png
           sips -z 512 512   icon.png --out icon.iconset/icon_512x512.png
-          cp icon.png icon.iconset/icon_512x512@2x.png
-          iconutil -c icns icon.iconset -o icon.icns || echo "icon.icns generation failed"
+          cp icon.png           icon.iconset/icon_512x512@2x.png
+          iconutil -c icns icon.iconset -o icon.icns
 
       - name: Download cacert.pem
         run: curl -o cacert.pem https://curl.se/ca/cacert.pem
@@ -84,17 +84,24 @@ jobs:
       - name: Create dist directory
         run: mkdir -p dist
 
+      - name: Install patchelf (CentOS/Ubuntu)
+        if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'centos-latest' }}
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y patchelf
+          elif [[ "${{ matrix.os }}" == "centos-latest" ]]; then
+            sudo yum install -y patchelf
+          fi
+
       - name: Build in Docker (Linux CentOS7)
         if: ${{ matrix.platform == 'docker' }}
         run: |
           docker run --rm -v "$PWD":/work -w /work ${{ matrix.image }} bash -c '
-            sed -i "s|mirrorlist=|#mirrorlist=|g" /etc/yum.repos.d/CentOS-Base.repo && \
-            sed -i "s|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g" /etc/yum.repos.d/CentOS-Base.repo && \
             yum install -y epel-release && \
             yum install -y python3 python3-pip gcc gcc-c++ make python3-devel curl && \
-            python3 --version && \
             pip3 install --upgrade pip setuptools wheel && \
-            pip3 install nuitka "aiohttp[brotli]" -r requirements.txt && \
+            pip3 install nuitka -r requirements.txt && \
             python3 -m nuitka --standalone --onefile --output-dir=dist \
               --follow-imports --linux-icon=icon.ico --remove-output \
               --assume-yes-for-downloads twitchTransFN.py'
@@ -106,7 +113,7 @@ jobs:
           ICON_OPT=""
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             ICON_OPT="--windows-icon-from-ico=icon.ico"
-          elif [[ "${{ matrix.os }}" == "macos-latest" && -f icon.icns ]]; then
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             ICON_OPT="--macos-app-icon=icon.icns"
           elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             ICON_OPT="--linux-icon=icon.ico"
@@ -116,7 +123,7 @@ jobs:
             --follow-imports --remove-output --assume-yes-for-downloads \
             $ICON_OPT twitchTransFN.py"
 
-          if [[ "${{ matrix.os }}" == "macos-latest" && -n "${{ matrix.arch }}" ]]; then
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             arch -${{ matrix.arch }} bash -c "$BUILD_CMD"
           else
             eval "$BUILD_CMD"

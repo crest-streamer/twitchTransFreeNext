@@ -3,7 +3,7 @@ name: build binaries
 on:
   push:
     tags:
-      - "cv*"
+      - "v*"
 
 jobs:
   build_matrix:
@@ -43,33 +43,17 @@ jobs:
       - name: Upgrade pip and install dependencies
         run: python -m pip install --upgrade pip setuptools wheel
 
-      - name: Install Linux dependencies for Nuitka
-        if: matrix.env == 'linux'
+      - name: Install dependencies for Nuitka (Linux/Mac)
+        if: matrix.os != 'windows-latest'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y patchelf
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y patchelf
+          fi
           python -m pip install nuitka
-
-      - name: Install macOS dependencies for Nuitka and build icon.icns
-        if: startsWith(matrix.env, 'macos')
-        run: |
-          brew install zstd imagemagick
-          python -m pip install nuitka
-          mkdir icon.iconset
-          sips -z 16 16     icon.png --out icon.iconset/icon_16x16.png
-          sips -z 32 32     icon.png --out icon.iconset/icon_16x16@2x.png
-          sips -z 32 32     icon.png --out icon.iconset/icon_32x32.png
-          sips -z 64 64     icon.png --out icon.iconset/icon_32x32@2x.png
-          sips -z 128 128   icon.png --out icon.iconset/icon_128x128.png
-          sips -z 256 256   icon.png --out icon.iconset/icon_128x128@2x.png
-          sips -z 256 256   icon.png --out icon.iconset/icon_256x256.png
-          sips -z 512 512   icon.png --out icon.iconset/icon_256x256@2x.png
-          sips -z 512 512   icon.png --out icon.iconset/icon_512x512.png
-          cp icon.png icon.iconset/icon_512x512@2x.png
-          iconutil -c icns icon.iconset -o icon.icns
 
       - name: Install Nuitka for Windows
-        if: matrix.env == 'windows'
+        if: matrix.os == 'windows-latest'
         run: python -m pip install nuitka
 
       - name: Install Python requirements
@@ -78,30 +62,48 @@ jobs:
       - name: Download cacert.pem
         run: curl -o cacert.pem https://curl.se/ca/cacert.pem
 
-      - name: Get Version (Windows)
-        id: get_version_win
-        if: matrix.os == 'windows-latest'
-        run: |
-          pwsh -Command "$VERSION = (Select-String -Pattern 'version =' twitchTransFN.py).Line -replace '.*''([^'']+)''.*', '$1'; echo 'version=$VERSION' >> $env:GITHUB_ENV"
-
-      - name: Get Version (Linux/macOS)
-        id: get_version_unix
-        if: matrix.os != 'windows-latest'
+      - name: Get Version (for Linux)
+        if: matrix.os == 'ubuntu-latest'
+        id: get_version_linux
         run: |
           VERSION=$(grep "version =" twitchTransFN.py | awk -F "'" '{print $2}')
-          echo "version=$VERSION" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Build with Nuitka
+      - name: Get Version (for Windows)
+        if: matrix.os == 'windows-latest'
+        id: get_version_windows
+        run: |
+          $VERSION = (Select-String -Pattern "version =" twitchTransFN.py).Line -replace ".*'([^']+)'.*", '$1'
+          Write-Output "VERSION=$VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Get Version (for macOS)
+        if: matrix.os == 'macos-latest'
+        id: get_version_macos
+        run: |
+          VERSION=$(grep "version =" twitchTransFN.py | awk -F "'" '{print $2}')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Build with Nuitka for Linux
+        if: matrix.os == 'ubuntu-latest'
         run: |
           mkdir -p dist
           COMMON_ARGS="--standalone --onefile --follow-imports --output-dir=dist --output-filename=${{ matrix.bin }}"
-          if [ "${{ matrix.env }}" == "windows" ]; then
-            nuitka $COMMON_ARGS --windows-icon-from-ico=icon.ico twitchTransFN.py
-          elif [ "${{ matrix.env }}" == "linux" ]; then
-            nuitka $COMMON_ARGS --linux-icon=icon.ico twitchTransFN.py
-          elif [ "${{ matrix.env }}" == "macos_M1" ] || [ "${{ matrix.env }}" == "macos_Intel" ]; then
-            nuitka $COMMON_ARGS --macos-app-icon=icon.icns --macos-create-app-bundle twitchTransFN.py
-          fi
+          nuitka $COMMON_ARGS --linux-icon=icon.ico twitchTransFN.py
+
+      - name: Build with Nuitka for Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir -p dist
+          COMMON_ARGS="--standalone --onefile --follow-imports --output-dir=dist --output-filename=${{ matrix.bin }}"
+          nuitka $COMMON_ARGS --windows-icon-from-ico=icon.ico twitchTransFN.py
+
+      - name: Build with Nuitka for macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir -p dist
+          COMMON_ARGS="--standalone --onefile --follow-imports --output-dir=dist --output-filename=${{ matrix.bin }}"
+          nuitka $COMMON_ARGS --macos-app-icon=icon.icns --macos-create-app-bundle twitchTransFN.py
 
       - name: Sign the binary with GPG
         env:
@@ -113,12 +115,12 @@ jobs:
 
       - name: Archive Binary (zip)
         if: matrix.archive == 'zip'
-        run: powershell Compress-Archive -Path dist/* -DestinationPath twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip
+        run: powershell Compress-Archive -Path dist/* -DestinationPath twitchTransFN_${{ env.VERSION }}_${{ matrix.env }}.zip
 
       - name: Archive Binary (tar.gz)
         if: matrix.archive == 'tar.gz'
         run: |
-          ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
+          ARCHIVE_NAME="twitchTransFN_${{ env.VERSION }}_${{ matrix.env }}"
           mv dist "$ARCHIVE_NAME"
           tar -czvf "$ARCHIVE_NAME.tar.gz" "$ARCHIVE_NAME"
 
@@ -126,7 +128,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.${{ matrix.archive }}
+            twitchTransFN_${{ env.VERSION }}_${{ matrix.env }}.${{ matrix.archive }}
             dist/${{ matrix.bin }}.asc
 
       - name: Clean up

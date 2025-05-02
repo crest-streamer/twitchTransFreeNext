@@ -19,29 +19,29 @@ jobs:
           - env: linux_ubuntu
             os: ubuntu-latest
             image: ubuntu:22.04
-            bin: twitchTransFN
+            bin_ext: ""
             archive: tar.gz
             platform: native
           - env: linux_centos7
             os: ubuntu-latest
             image: centos:7
-            bin: twitchTransFN
+            bin_ext: ""
             archive: tar.gz
             platform: docker
-          - env: windows
+          - env: win
             os: windows-latest
-            bin: twitchTransFN.exe
+            bin_ext: ".exe"
             archive: zip
             platform: native
           - env: macos_M1
             os: macos-latest
-            bin: twitchTransFN.command
+            bin_ext: ".command"
             archive: tar.gz
             arch: arm64
             platform: native
           - env: macos_Intel
             os: macos-latest
-            bin: twitchTransFN.command
+            bin_ext: ".command"
             archive: tar.gz
             arch: x86_64
             platform: native
@@ -60,7 +60,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install nuitka -r requirements.txt
+          pip install nuitka zstandard patchelf -r requirements.txt
 
       - name: Convert .ico to .icns on macOS
         if: matrix.os == 'macos-latest'
@@ -84,25 +84,14 @@ jobs:
       - name: Create dist directory
         run: mkdir -p dist
 
-      - name: Install patchelf (CentOS/Ubuntu)
-        if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'centos-latest' }}
-        run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            sudo apt-get update
-            sudo apt-get install -y patchelf
-          elif [[ "${{ matrix.os }}" == "centos-latest" ]]; then
-            sudo yum --disablerepo=base update
-            sudo yum install -y patchelf
-          fi
-
       - name: Build in Docker (Linux CentOS7)
         if: ${{ matrix.platform == 'docker' }}
         run: |
           docker run --rm -v "$PWD":/work -w /work ${{ matrix.image }} bash -c '
             yum install -y epel-release && \
-            yum install -y python3 python3-pip gcc gcc-c++ make python3-devel curl && \
+            yum install -y python3 python3-pip gcc gcc-c++ make python3-devel curl patchelf && \
             pip3 install --upgrade pip setuptools wheel && \
-            pip3 install nuitka -r requirements.txt && \
+            pip3 install nuitka zstandard -r requirements.txt && \
             python3 -m nuitka --standalone --onefile --output-dir=dist \
               --follow-imports --linux-icon=icon.ico --remove-output \
               --assume-yes-for-downloads twitchTransFN.py'
@@ -139,8 +128,10 @@ jobs:
       - name: Prepare archive folder
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
+          FINAL_BIN="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}${{ matrix.bin_ext }}"
+          mv dist/${{ matrix.bin }} "$FINAL_BIN"
           mkdir -p "$ARCHIVE_NAME"
-          mv dist/${{ matrix.bin }} "$ARCHIVE_NAME/"
+          mv "$FINAL_BIN" "$ARCHIVE_NAME/"
 
       - name: Import GPG Keys
         if: ${{ env.GPG_PRIVATE_KEY != '' }}
@@ -152,13 +143,12 @@ jobs:
         if: ${{ env.GPG_PRIVATE_KEY != '' && env.GPG_KEY_ID != '' }}
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
-          BIN_PATH="$ARCHIVE_NAME/${{ matrix.bin }}"
+          BIN_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}${{ matrix.bin_ext }}"
           echo "$GPG_PASSPHRASE" | \
             gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
               --local-user "$GPG_KEY_ID" \
-              --output "$BIN_PATH.sig" \
-              --detach-sign "$BIN_PATH"
-          mv "$BIN_PATH.sig" "$ARCHIVE_NAME/"
+              --output "$ARCHIVE_NAME/$BIN_NAME.sig" \
+              --detach-sign "$ARCHIVE_NAME/$BIN_NAME"
 
       - name: Final archive with .sig
         run: |
@@ -178,4 +168,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cleanup
-        run: rm -rf twitchTransFN_*
+        run: rm -rf twitchTransFN_* icon.icns icon.iconset

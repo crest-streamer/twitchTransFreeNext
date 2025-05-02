@@ -15,26 +15,37 @@ jobs:
   build:
     strategy:
       matrix:
-        env: [linux, windows, macos_M1, macos_Intel]
         include:
-          - env: linux
+          - env: linux_ubuntu
             os: ubuntu-latest
+            image: ubuntu:22.04
             bin: twitchTransFN
             archive: tar.gz
+            platform: native
+          - env: linux_centos7
+            os: ubuntu-latest
+            image: centos:7
+            bin: twitchTransFN
+            archive: tar.gz
+            platform: docker
           - env: windows
             os: windows-latest
             bin: twitchTransFN.exe
             archive: zip
+            platform: native
           - env: macos_M1
             os: macos-latest
             bin: twitchTransFN.command
             archive: tar.gz
-            arch: _arm64
+            arch: arm64
+            platform: native
           - env: macos_Intel
             os: macos-latest
             bin: twitchTransFN.command
             archive: tar.gz
-            arch: _x86_64
+            arch: x86_64
+            platform: native
+
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
 
@@ -49,12 +60,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install nuitka
-          pip install -r requirements.txt
-          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            pip install imageio
-          fi
-        shell: bash
+          pip install nuitka -r requirements.txt
 
       - name: Download cacert.pem
         run: curl -o cacert.pem https://curl.se/ca/cacert.pem
@@ -62,7 +68,17 @@ jobs:
       - name: Create dist directory
         run: mkdir -p dist
 
-      - name: Build with Nuitka
+      - name: Build in Docker (Linux CentOS7)
+        if: ${{ matrix.platform == 'docker' }}
+        run: |
+          docker run --rm -v "$PWD":/work -w /work ${{ matrix.image }} bash -c '
+            yum install -y python3 python3-pip zip gcc gcc-c++ make curl && \
+            pip3 install --upgrade pip setuptools wheel nuitka -r requirements.txt && \
+            python3 -m nuitka --standalone --onefile --output-dir=dist \
+              --follow-imports --remove-output --assume-yes-for-downloads twitchTransFN.py'
+
+      - name: Build natively (Windows/Linux/macOS)
+        if: ${{ matrix.platform == 'native' }}
         shell: bash
         run: |
           ICON_OPT=""
@@ -74,82 +90,62 @@ jobs:
             ICON_OPT="--linux-icon=icon.ico"
           fi
 
-          python -m nuitka --standalone --onefile --output-dir=dist \
+          BUILD_CMD="python -m nuitka --standalone --onefile --output-dir=dist \
             --follow-imports --remove-output --assume-yes-for-downloads \
-            $ICON_OPT twitchTransFN.py
+            $ICON_OPT twitchTransFN.py"
+
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            arch -${{ matrix.arch }} bash -c "$BUILD_CMD"
+          else
+            eval "$BUILD_CMD"
+          fi
 
       - name: Get Version
         id: get_version
-        shell: bash
         run: |
-          VERSION=$(grep "version =" twitchTransFN.py | awk -F "'" '{print $2}')
+          VERSION=$(grep -oP "version\s*=\s*['\"]\K[0-9\.]+(?=['\"])" twitchTransFN.py)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Detected version: $VERSION"
 
-      # GPGのインポート処理
-      - name: Import GPG Keys (Linux)
-        if: ${{ matrix.os == 'ubuntu-latest' && env.GPG_PRIVATE_KEY != '' && env.GPG_PUBLIC_KEY != '' }}
-        shell: bash
-        run: |
-          echo "${{ env.GPG_PRIVATE_KEY }}" | gpg --batch --import
-          echo "${{ env.GPG_PUBLIC_KEY }}" | gpg --batch --import
-
-      - name: Import GPG Keys (Windows)
-        if: ${{ matrix.os == 'windows-latest' && env.GPG_PRIVATE_KEY != '' && env.GPG_PUBLIC_KEY != '' }}
-        shell: bash
-        run: |
-          echo "${{ env.GPG_PRIVATE_KEY }}" | gpg --batch --import
-          echo "${{ env.GPG_PUBLIC_KEY }}" | gpg --batch --import
-
-      - name: Import GPG Keys (macOS)
-        if: ${{ matrix.os == 'macos-latest' && env.GPG_PRIVATE_KEY != '' && env.GPG_PUBLIC_KEY != '' }}
-        shell: bash
-        run: |
-          echo "${{ env.GPG_PRIVATE_KEY }}" | gpg --batch --import
-          echo "${{ env.GPG_PUBLIC_KEY }}" | gpg --batch --import
-
-      # GPG署名処理
-      - name: GPG Sign Binary
-        if: ${{ env.GPG_PRIVATE_KEY != '' && env.GPG_PUBLIC_KEY != '' && env.GPG_PASSPHRASE != '' && env.GPG_KEY_ID != '' }}
-        shell: bash
+      - name: Prepare archive folder
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
-          BIN_PATH="dist/${{ matrix.bin }}"
-          
-          # ファイルが存在するか確認
-          if [ ! -f "$BIN_PATH" ]; then
-            echo "Error: Binary file not found at $BIN_PATH"
-            exit 1
-          fi
+          mkdir -p "$ARCHIVE_NAME"
+          mv dist/${{ matrix.bin }} "$ARCHIVE_NAME/"
 
+      - name: Import GPG Keys
+        if: ${{ env.GPG_PRIVATE_KEY != '' }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "$GPG_PUBLIC_KEY" | gpg --batch --import
+
+      - name: GPG Sign Binary
+        if: ${{ env.GPG_PRIVATE_KEY != '' && env.GPG_KEY_ID != '' }}
+        run: |
+          ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
+          BIN_PATH="$ARCHIVE_NAME/${{ matrix.bin }}"
           echo "$GPG_PASSPHRASE" | \
             gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
               --local-user "$GPG_KEY_ID" \
               --output "$BIN_PATH.sig" \
               --detach-sign "$BIN_PATH"
+          mv "$BIN_PATH.sig" "$ARCHIVE_NAME/"
 
-      - name: Archive binaries with .sig
+      - name: Final archive with .sig
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
-          mkdir -p "$ARCHIVE_NAME"
-          mv dist/* "$ARCHIVE_NAME"  # distの中身を移動
-
           if [[ "${{ matrix.archive }}" == "zip" ]]; then
             zip -r "${ARCHIVE_NAME}.zip" "$ARCHIVE_NAME"
           else
             tar -czvf "${ARCHIVE_NAME}.tar.gz" "$ARCHIVE_NAME"
           fi
 
-      # リリースのアップロード
-      - name: Upload release assets
+      - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.${{ matrix.archive }}
-            twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.${{ matrix.archive }}.sig
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cleanup
-        run: |
-          rm -rf twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}
+        run: rm -rf twitchTransFN_*

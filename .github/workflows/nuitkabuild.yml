@@ -1,4 +1,4 @@
-name: build binaries
+name: Build TwitchTransFN
 
 on:
   push:
@@ -6,99 +6,53 @@ on:
       - "cv*"
 
 jobs:
-  build_matrix:
+  build:
     strategy:
       matrix:
-        env: [linux, windows, macos_M1, macos_Intel]
+        os: [windows-latest, macos-latest, ubuntu-latest]
         include:
-          - env: linux
-            os: ubuntu-latest
-            bin: twitchTransFN
-            archive: tar.gz
-          - env: windows
-            os: windows-latest
-            bin: twitchTransFN.exe
-            archive: zip
-          - env: macos_M1
-            os: macos-latest
-            bin: twitchTransFN.command
-            archive: tar.gz
-            arch: _arm64
-          - env: macos_Intel
-            os: macos-latest
-            bin: twitchTransFN.command
-            archive: tar.gz
-            arch: _x86_64
+          - os: windows-latest
+            target: windows
+          - os: macos-latest
+            target: macos_M1
+            arch: arm64
+          - os: macos-latest
+            target: macos_Intel
+            arch: x86_64
+          - os: ubuntu-latest
+            target: linux
+
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: '3.10'  # Nuitka対応のPythonバージョン
 
-      - name: Upgrade pip and install dependencies
-        run: python -m pip install --upgrade pip setuptools wheel
-
-      - name: Install build-essential (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt update && sudo apt install -y build-essential
-
-      - name: Install zstandard (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: python -m pip install zstandard
-
-      - name: Install dependencies for Nuitka (Linux/Mac)
-        if: matrix.os != 'windows-latest'
+      - name: Install dependencies
         run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            sudo apt-get update
-            sudo apt install -y ccache
-            sudo apt-get install -y patchelf
-          else
-            brew install ccache
-          fi
-          python -m pip install nuitka
-
-      - name: Install Nuitka for Windows
-        if: matrix.os == 'windows-latest'
-        run: python -m pip install nuitka
-
-      - name: Install Python requirements
-        run: python -m pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          pip install nuitka
+          pip install -r requirements.txt
 
       - name: Download cacert.pem
-        run: curl -o cacert.pem https://curl.se/ca/cacert.pem
-
-      - name: Get Version (for Linux)
-        if: matrix.os == 'ubuntu-latest'
-        id: get_version_linux
         run: |
-          VERSION=$(grep "version =" twitchTransFN.py | awk -F "'" '{print $2}')
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Get Version (for Windows)
-        if: matrix.os == 'windows-latest'
-        id: get_version_windows
-        run: |
-          $VERSION = (Select-String -Pattern "version =" twitchTransFN.py).Line -replace ".*'([^']+)'.*", '$1'
-          Write-Output "VERSION=$VERSION"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Get Version (for macOS)
-        if: matrix.os == 'macos-latest'
-        id: get_version_macos
-        run: |
-          VERSION=$(grep "version =" twitchTransFN.py | awk -F "'" '{print $2}')
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          if [ ! -f cacert.pem ]; then
+            curl -O https://curl.se/ca/cacert.pem
+          fi
 
       - name: Build Icon for macOS
         if: matrix.os == 'macos-latest'
         run: |
-          mkdir icon.iconset
+          if [ ! -f icon.png ]; then
+            echo "Error: icon.png not found. Please provide an icon.png file."
+            exit 1
+          fi
+          mkdir -p icon.iconset
           sips -z 16 16     icon.png --out icon.iconset/icon_16x16.png
           sips -z 32 32     icon.png --out icon.iconset/icon_16x16@2x.png
           sips -z 32 32     icon.png --out icon.iconset/icon_32x32.png
@@ -110,97 +64,70 @@ jobs:
           sips -z 512 512   icon.png --out icon.iconset/icon_512x512.png
           cp icon.png icon.iconset/icon_512x512@2x.png
           iconutil -c icns icon.iconset -o icon.icns
+          rm -rf icon.iconset
 
-      - name: Build with Nuitka (Linux/macOS)
-        if: matrix.os != 'windows-latest'
+      - name: Build for ${{ matrix.target }}
         run: |
-          mkdir -p dist
-          nuitka --standalone --onefile --follow-imports \
-            --output-dir=dist \
-            --disable-cache=ccache \
-            --output-filename=${{ matrix.bin }} \
-            twitchTransFN.py \
-            $(if [[ "${{ matrix.env }}" == "windows" ]]; then echo "--windows-icon-from-ico=icon.ico"; elif [[ "${{ matrix.env }}" == "linux" ]]; then echo "--linux-icon=icon.ico"; else echo "--macos-app-icon=icon.icns --macos-create-app-bundle"; fi)
+          python build.py ${{ matrix.target }}
+        env:
+          VERSION: ${{ github.ref_name }}  # バージョン情報を環境変数に設定
 
-
-      - name: Build with Nuitka (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Set up GPG
+        if: env.GPG_PRIVATE_KEY != '' && env.GPG_KEY_ID != '' && env.GPG_PASSPHRASE != ''  # キーがブランクでない場合のみ実行
         run: |
-          mkdir dist
-          nuitka `
-            --standalone `
-            --onefile `
-            --assume-yes-for-downloads `
-            --follow-imports `
-            --output-dir=dist `
-            --disable-cache=ccache `
-            --output-filename=${{ matrix.bin }} `
-            --windows-icon-from-ico=icon.ico `
-            twitchTransFN.py
+          echo "Setting up GPG..."
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --import --batch --yes
+          echo "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --import --batch --yes
+          echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
+          echo "pinentry-mode loopback" > ~/.gnupg/gpg.conf
+          gpg-agent --daemon
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-
-      - name: Build with Nuitka for macOS
-        if: matrix.os == 'macos-latest'
+      - name: Sign Artifacts with GPG
+        if: env.GPG_PRIVATE_KEY != '' && env.GPG_KEY_ID != '' && env.GPG_PASSPHRASE != ''  # キーがブランクでない場合のみ実行
         run: |
-          mkdir -p dist
-          COMMON_ARGS="--standalone --onefile --follow-imports --output-dir=dist --output-filename=${{ matrix.bin }}"
-          nuitka $COMMON_ARGS --macos-app-icon=icon.icns --macos-create-app-bundle twitchTransFN.py
+          for file in dist/*; do
+            if [ -f "$file" ]; then
+              echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --pinentry-mode loopback --passphrase-fd 0 --sign --armor --output "${file}.asc" --detach-sign --default-key "${{ secrets.GPG_KEY_ID }}" "$file"
+              echo "Signed: ${file}.asc"
+            fi
+          done
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      - name: Archive Binary (zip)
-        if: matrix.archive == 'zip'
-        shell: pwsh
+      - name: Skip GPG Signing (if keys are blank)
+        if: env.GPG_PRIVATE_KEY == '' || env.GPG_KEY_ID == '' || env.GPG_PASSPHRASE == ''
         run: |
-          $version = "${{ env.VERSION }}"
-          $envName = "${{ matrix.env }}"
-          $archiveName = "twitchTransFN_${version}_${envName}"
-          $sourcePath = "dist/${{ matrix.bin }}"
-          $extension = [System.IO.Path]::GetExtension($sourcePath)
-          $targetPath = "dist/${archiveName}${extension}"
+          echo "GPG keys are blank. Skipping GPG signing."
 
-          if (-Not (Test-Path $sourcePath)) {
-            Write-Error "File $sourcePath not found"
-            exit 1
-          }
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: twitchtransfn-${{ matrix.target }}-${{ matrix.arch || 'x86_64' }}
+          path: |
+            dist/*
+            dist/*.asc
 
-          Move-Item -Path $sourcePath -Destination $targetPath
-
-          if (Test-Path "${archiveName}.zip") {
-            Remove-Item "${archiveName}.zip"
-          }
-
-          Compress-Archive -Path $targetPath -DestinationPath "${archiveName}.zip"
-
-
-      - name: Archive Binary (tar.gz)
-        if: matrix.archive == 'tar.gz'
-        run: |
-          ARCHIVE_NAME="twitchTransFN_${{ env.VERSION }}_${{ matrix.env }}"
-          mkdir "$ARCHIVE_NAME"
-          mv "dist/${{ matrix.bin }}" "$ARCHIVE_NAME/"
-
-          # 不要なフォルダを削除
-          rm -rf "$ARCHIVE_NAME/twitchTransFN.build"
-          rm -rf "$ARCHIVE_NAME/twitchTransFN.onefile-build"
-          rm -rf "$ARCHIVE_NAME/twitchTransFN.dist"
-          rm -rf "$ARCHIVE_NAME/Resources"
-
-          tar -czvf "$ARCHIVE_NAME.tar.gz" "$ARCHIVE_NAME"
-
-
-
-      - name: Upload Release Asset
+      - name: Create Release (on push to main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: v${{ env.VERSION }}
           files: |
-            twitchTransFN_${{ env.VERSION }}_${{ matrix.env }}.${{ matrix.archive }}
-            dist/${{ matrix.bin }}.asc
+            dist/twitchTransFN_*_*.exe
+            dist/twitchTransFN_*_*.command
+            dist/twitchTransFN_*_linux
+            dist/*.asc
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Clean up (Windows)
-        if: matrix.os == 'windows-latest'
-        run: Remove-Item -Recurse -Force dist, *.tar.gz, *.zip, *.asc -ErrorAction SilentlyContinue
-
-      - name: Clean up (Unix)
-        if: matrix.os != 'windows-latest'
-        run: rm -rf dist *.tar.gz *.zip *.asc || true
-
-
+      - name: Get Version
+        id: get_version
+        run: |
+          echo "VERSION=$(python -c 'from build import get_version; print(get_version())')" >> $GITHUB_ENV

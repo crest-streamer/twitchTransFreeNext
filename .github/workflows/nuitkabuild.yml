@@ -1,0 +1,179 @@
+name: build binaries
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+  GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+jobs:
+  build_matrix:
+    strategy:
+      matrix:
+        env: [linux, windows, macos_M1, macos_Intel]
+        include:
+          - env: linux
+            os: ubuntu-latest
+            bin: twitchTransFN
+            archive: tar.gz
+          - env: windows
+            os: windows-latest
+            bin: twitchTransFN.exe
+            archive: zip
+          - env: macos_M1
+            os: macos-latest
+            bin: twitchTransFN.command
+            archive: tar.gz
+            arch: _arm64
+          - env: macos_Intel
+            os: macos-latest
+            bin: twitchTransFN.command
+            archive: tar.gz
+            arch: _x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: upgrade pip and install dependencies
+        run: python -m pip install --upgrade pip setuptools wheel
+
+      - name: Install Nuitka
+        run: python -m pip install nuitka
+
+      - name: install requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Download cacert.pem
+        run: curl -o cacert.pem https://curl.se/ca/cacert.pem
+
+      - name: Create dist directory
+        run: mkdir -p dist
+
+      - name: Get Version (Unix)
+        id: get_version_unix
+        if: runner.os != 'Windows'
+        run: |
+          VERSION=$(grep "version =" twitchTransFN.py | awk -F "'" '{print $2}')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version detected: $VERSION"
+
+      - name: Get Version (Windows)
+        id: get_version_windows
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $content = Get-Content -Path twitchTransFN.py
+          $versionLine = $content | Where-Object { $_ -match "version = '(.+)'" }
+          $version = $matches[1]
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "Version detected: $version"
+
+      - name: Set Version Variable
+        id: get_version
+        run: |
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            echo "version=${{ steps.get_version_windows.outputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ steps.get_version_unix.outputs.version }}" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: build with nuitka
+        run: python -m nuitka --standalone --onefile --output-dir=dist main.py
+
+      - name: archive with zip
+        if: ${{ matrix.archive == 'zip' }}
+        run: powershell Compress-Archive -Path dist/* -DestinationPath twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip
+
+      - name: archive with tar.gz
+        if: ${{ matrix.archive == 'tar.gz' }}
+        run: |
+          ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
+          mv dist "$ARCHIVE_NAME"
+          tar -czvf "${ARCHIVE_NAME}.tar.gz" "$ARCHIVE_NAME"
+          echo "Created archive: ${ARCHIVE_NAME}.tar.gz"
+          ls -la
+
+      # GPG 署名 (Unix)
+      - name: GPG Sign Archive (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          ARCHIVE_BASE="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
+          ARCHIVE_FILE="${ARCHIVE_BASE}.${{ matrix.archive }}"
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import --passphrase "${{ env.GPG_PASSPHRASE }}"
+          gpg --batch --passphrase "${{ env.GPG_PASSPHRASE }}" -u "${{ env.GPG_KEY_ID }}" -o "${ARCHIVE_FILE}.sig" --detach-sig --armor "${ARCHIVE_FILE}"
+          echo "Created GPG signature: ${ARCHIVE_FILE}.sig"
+
+      # GPG 署名 (Windows)
+      - name: GPG Sign Archive (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          ARCHIVE_BASE="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
+          ARCHIVE_FILE="${ARCHIVE_BASE}.${{ matrix.archive }}"
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import --passphrase "${{ env.GPG_PASSPHRASE }}"
+          gpg --batch --passphrase "${{ env.GPG_PASSPHRASE }}" -u "${{ env.GPG_KEY_ID }}" -o "${ARCHIVE_FILE}.sig" --detach-sig --armor "${ARCHIVE_FILE}"
+          echo "Created GPG signature: ${ARCHIVE_FILE}.sig"
+
+      - name: List Files Before Release (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          echo "Current directory contents:"
+          ls -la
+          echo "Files that should be uploaded:"
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip"
+            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip.sig"
+          else
+            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.tar.gz"
+            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.tar.gz.sig"
+          fi
+
+      - name: List Files Before Release (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          echo "Current directory contents:"
+          Get-ChildItem -Force
+          echo "Files that should be uploaded:"
+          if ("${{ matrix.archive }}" -eq "zip") {
+            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip"
+            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip.sig"
+          } else {
+            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.tar.gz"
+            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.tar.gz.sig"
+          }
+
+      - name: update github release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: false
+          prerelease: false
+          files: |
+            *.${{ matrix.archive }}
+            *.${{ matrix.archive }}.sig
+          fail_on_unmatched_files: false
+
+      - name: Remove dist directory (Unix)
+        if: runner.os != 'Windows'
+        run: rm -rf "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
+
+      - name: Remove dist directory (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $archiveBase = "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
+          if (Test-Path $archiveBase) {
+            Remove-Item -Recurse -Force $archiveBase
+          }

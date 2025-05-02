@@ -78,11 +78,19 @@ jobs:
       - name: Download cacert.pem
         run: curl -o cacert.pem https://curl.se/ca/cacert.pem
 
-      - name: Get Version
-        id: get_version
+      - name: Get Version (Windows)
+        id: get_version_win
+        if: matrix.os == 'windows-latest'
         run: |
-          $VERSION = (Select-String -Pattern "version =" twitchTransFN.py).Line -replace ".*'([^']+)'.*", '$1'
-          Write-Output "version=$VERSION" >> $GITHUB_OUTPUT
+          VERSION=$(Select-String -Pattern "version =" twitchTransFN.py | ForEach-Object { ($_ -replace ".*'([^']+)'.*", '$1') })
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get Version (Linux/macOS)
+        id: get_version_unix
+        if: matrix.os != 'windows-latest'
+        run: |
+          VERSION=$(grep "version =" twitchTransFN.py | awk -F "'" '{print $2}')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build with Nuitka
         run: |

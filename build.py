@@ -58,7 +58,9 @@ def build_for_os(os_name, arch, add_data_option):
 
     # macOSの場合、AppKitを試す（必要に応じて）
     if os_name == "macos":
-        include_modules.append("--include-module=AppKit")
+        os.environ["CC"] = "/usr/bin/clang"
+        os.environ["CXX"] = "/usr/bin/clang++"
+        #include_modules.append("--include-module=AppKit")
 
     # コマンド構築
     if os_name == "windows":
@@ -102,6 +104,7 @@ def build_for_os(os_name, arch, add_data_option):
             add_data_option,
         ] + include_modules + ["twitchTransFN.py"]
     
+    print("Running command:", " ".join(command))
     subprocess.run(command, check=True)
 
     # ファイル名の変更

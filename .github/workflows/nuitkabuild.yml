@@ -60,7 +60,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install nuitka -r requirements.txt
+          pip install nuitka zstandard -r requirements.txt
 
       - name: Convert .ico to .icns on macOS
         if: matrix.os == 'macos-latest'

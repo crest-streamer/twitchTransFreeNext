@@ -88,9 +88,6 @@ jobs:
           fi
         shell: bash
 
-      - name: build with nuitka
-        run: python -m nuitka --standalone --onefile --output-dir=dist main.py
-
       - name: archive with zip
         if: ${{ matrix.archive == 'zip' }}
         run: powershell Compress-Archive -Path dist/* -DestinationPath twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip

@@ -102,7 +102,7 @@ jobs:
             $ICON_OPT twitchTransFN.py"
 
           if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            arch -${{ matrix.arch }} bash -c \"$BUILD_CMD\"
+            arch -${{ matrix.arch }} bash -c "$BUILD_CMD"
           else
             eval "$BUILD_CMD"
           fi

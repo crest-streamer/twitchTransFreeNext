@@ -16,32 +16,25 @@ jobs:
     strategy:
       matrix:
         include:
-          - env: linux_ubuntu
+          - env: linux_appimage
             os: ubuntu-latest
-            image: ubuntu:22.04
-            bin_ext: ""
-            archive: tar.gz
+            bin: twitchTransFN
+            archive: AppImage
             platform: native
-          - env: linux_centos7
-            os: ubuntu-latest
-            image: centos:7
-            bin_ext: ""
-            archive: tar.gz
-            platform: docker
-          - env: win
+          - env: windows
             os: windows-latest
-            bin_ext: ".exe"
+            bin: twitchTransFN.exe
             archive: zip
             platform: native
           - env: macos_M1
             os: macos-latest
-            bin_ext: ".command"
+            bin: twitchTransFN.command
             archive: tar.gz
             arch: arm64
             platform: native
           - env: macos_Intel
             os: macos-latest
-            bin_ext: ".command"
+            bin: twitchTransFN.command
             archive: tar.gz
             arch: x86_64
             platform: native
@@ -59,8 +52,10 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y patchelf zstd curl file libfuse2
           python -m pip install --upgrade pip setuptools wheel
-          pip install nuitka zstandard patchelf -r requirements.txt
+          pip install nuitka -r requirements.txt
 
       - name: Convert .ico to .icns on macOS
         if: matrix.os == 'macos-latest'
@@ -84,20 +79,7 @@ jobs:
       - name: Create dist directory
         run: mkdir -p dist
 
-      - name: Build in Docker (Linux CentOS7)
-        if: ${{ matrix.platform == 'docker' }}
-        run: |
-          docker run --rm -v "$PWD":/work -w /work ${{ matrix.image }} bash -c '
-            yum install -y epel-release && \
-            yum install -y python3 python3-pip gcc gcc-c++ make python3-devel curl patchelf && \
-            pip3 install --upgrade pip setuptools wheel && \
-            pip3 install nuitka zstandard -r requirements.txt && \
-            python3 -m nuitka --standalone --onefile --output-dir=dist \
-              --follow-imports --linux-icon=icon.ico --remove-output \
-              --assume-yes-for-downloads twitchTransFN.py'
-
-      - name: Build natively (Windows/Linux/macOS)
-        if: ${{ matrix.platform == 'native' }}
+      - name: Build with Nuitka
         shell: bash
         run: |
           ICON_OPT=""
@@ -114,10 +96,26 @@ jobs:
             $ICON_OPT twitchTransFN.py"
 
           if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            arch -${{ matrix.arch }} bash -c "$BUILD_CMD"
+            arch -${{ matrix.arch }} bash -c \"$BUILD_CMD\"
           else
             eval "$BUILD_CMD"
           fi
+
+      - name: Create AppImage (Ubuntu only)
+        if: matrix.env == 'linux_appimage'
+        run: |
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          mkdir -p AppDir/usr/bin
+          cp dist/${{ matrix.bin }} AppDir/usr/bin/
+          cp icon.png AppDir/
+          echo '[Desktop Entry]
+          Name=twitchTransFN
+          Exec=twitchTransFN
+          Icon=icon
+          Type=Application
+          Categories=Utility;' > AppDir/twitchTransFN.desktop
+          ./appimagetool-x86_64.AppImage AppDir twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.AppImage
 
       - name: Get Version
         id: get_version
@@ -126,12 +124,11 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Prepare archive folder
+        if: matrix.env != 'linux_appimage'
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
-          FINAL_BIN="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}${{ matrix.bin_ext }}"
-          mv dist/${{ matrix.bin }} "$FINAL_BIN"
           mkdir -p "$ARCHIVE_NAME"
-          mv "$FINAL_BIN" "$ARCHIVE_NAME/"
+          mv dist/${{ matrix.bin }} "$ARCHIVE_NAME/"
 
       - name: Import GPG Keys
         if: ${{ env.GPG_PRIVATE_KEY != '' }}
@@ -140,17 +137,19 @@ jobs:
           echo "$GPG_PUBLIC_KEY" | gpg --batch --import
 
       - name: GPG Sign Binary
-        if: ${{ env.GPG_PRIVATE_KEY != '' && env.GPG_KEY_ID != '' }}
+        if: ${{ env.GPG_PRIVATE_KEY != '' && env.GPG_KEY_ID != '' && matrix.env != 'linux_appimage' }}
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
-          BIN_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}${{ matrix.bin_ext }}"
+          BIN_PATH="$ARCHIVE_NAME/${{ matrix.bin }}"
           echo "$GPG_PASSPHRASE" | \
             gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
               --local-user "$GPG_KEY_ID" \
-              --output "$ARCHIVE_NAME/$BIN_NAME.sig" \
-              --detach-sign "$ARCHIVE_NAME/$BIN_NAME"
+              --output "$BIN_PATH.sig" \
+              --detach-sign "$BIN_PATH"
+          mv "$BIN_PATH.sig" "$ARCHIVE_NAME/"
 
       - name: Final archive with .sig
+        if: matrix.env != 'linux_appimage'
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
           if [[ "${{ matrix.archive }}" == "zip" ]]; then
@@ -168,4 +167,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cleanup
-        run: rm -rf twitchTransFN_* icon.icns icon.iconset
+        run: rm -rf twitchTransFN_*

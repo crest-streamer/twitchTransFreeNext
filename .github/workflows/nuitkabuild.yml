@@ -28,13 +28,13 @@ jobs:
             platform: native
           - env: macos_M1
             os: macos-latest
-            bin: twitchTransFN.command
+            bin: twitchTransFN.app
             archive: tar.gz
             arch: arm64
             platform: native
           - env: macos_Intel
             os: macos-latest
-            bin: twitchTransFN.command
+            bin: twitchTransFN.app
             archive: tar.gz
             arch: x86_64
             platform: native
@@ -52,11 +52,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y patchelf zstd curl file libfuse2
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y patchelf zstd curl file libfuse2
+          fi
           python -m pip install --upgrade pip setuptools wheel
           pip install nuitka -r requirements.txt
-
+        
       - name: Convert .ico to .icns on macOS
         if: matrix.os == 'macos-latest'
         run: |
@@ -86,7 +88,7 @@ jobs:
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             ICON_OPT="--windows-icon-from-ico=icon.ico"
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            ICON_OPT="--macos-app-icon=icon.icns"
+            ICON_OPT="--macos-app-icon=icon.icns --macos-create-app-bundle"
           elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             ICON_OPT="--linux-icon=icon.ico"
           fi
@@ -128,7 +130,7 @@ jobs:
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
           mkdir -p "$ARCHIVE_NAME"
-          mv dist/${{ matrix.bin }} "$ARCHIVE_NAME/"
+          cp -R dist/${{ matrix.bin }} "$ARCHIVE_NAME/"
 
       - name: Import GPG Keys
         if: ${{ env.GPG_PRIVATE_KEY != '' }}

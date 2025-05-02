@@ -60,7 +60,8 @@ def build_for_os(os_name, arch, add_data_option):
     # コマンド構築
     if os_name == "windows":
         command = [
-            "nuitka",
+            sys.executable,
+            "-m", "nuitka",
             "--standalone",
             "--onefile",
             "--output-dir=dist",

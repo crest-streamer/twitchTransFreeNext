@@ -3,7 +3,7 @@ name: build binaries
 on:
   push:
     branches:
-      - main
+      - master
 
 env:
   GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}

@@ -111,8 +111,8 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           mkdir -p dist
-          COMMON_ARGS="--standalone --onefile --follow-imports --output-dir=dist --output-filename=${{ matrix.bin }}"
-          nuitka $COMMON_ARGS --windows-icon-from-ico=icon.ico twitchTransFN.py
+          $env:COMMON_ARGS="--standalone --onefile --follow-imports --output-dir=dist --output-filename=${{ matrix.bin }}"
+          nuitka $env:COMMON_ARGS --windows-icon-from-ico=icon.ico twitchTransFN.py
 
       - name: Build with Nuitka for macOS
         if: matrix.os == 'macos-latest'

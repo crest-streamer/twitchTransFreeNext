@@ -8,11 +8,23 @@ from emoji import distinct_emoji_list
 import json, os, shutil, re, asyncio, deepl, sys, signal, tts, sound
 import database_controller as db # ja:既訳語データベース   en:Translation Database
 
-version = 'c2.5.1_4'
-description = 'emoteが翻訳されてしまう点を修正'
+version = '2.7.6'
 '''
-c2.5.1_4: - emoteが翻訳されてしまう点を修正
-c2.5.1_3: - didotb様の2.5.1_3(https://github.com/didotb/twitchTransFreeNext/releases/tag/v2.5.1_3)をベースに改造
+v2.7.6  : - SSLエラーにならないように，cacert.pemを同梱（@sayonari）
+v2.7.5  : - deepl翻訳が429(要求過多)エラーなので，標準翻訳設定をgoogleにした（とりあえず）（@sayonari）
+          - 翻訳結果がない時投稿しないように変更（@sayonari）
+          - 翻訳後のテキストからも，Delete_Wordsを削除するように変更（@sayonari）
+          - 読み上げ時の末尾の追加語（以下略）を config.py から削除（@sayonari）
+v2.7.4  : - _MEI削除部分がコントリビュータによって削除されていたので，再度追加（@sayonari)
+          - zh-TWの翻訳先言語をzh-twに変更
+v2.7.3  : - Windows版 .exe をPyInstallerでビルドするときに，trojanが検出される問題を修正（build.ymlの修正）
+v2.7.2  : - 開発者（さぁたん，さよなりω）のアカウント名が起動時に表示されるようになった
+v2.7.1  : - bug fix
+          - non_twitch_emotes()をコメントアウト（うまく動かなかったので）
+v2.7.0  : - 単芝チェック追加（wのみの発言を無視）
+          - 長過ぎるコメント文をTTS読み上げに対して省略する機能（@yuniruyuni）
+          - tts.py, sound.py を作成し，それぞれの機能を分離
+          - DeepLが無料翻訳の単語制限に達しないようにするためのアップデートです。（@didotb）
 v2.5.1  : - bug fix for TTS(さとうささら) by yuniruyuni
 v2.5.0  : - 実行バイナリをリポジトリに含めず，ActionsでReleaseするように変更（yuniruyuni先生，ちゃらひろ先生による）
           - 様々なバグ修正（ちゃらひろせんせいによる）
@@ -42,11 +54,13 @@ v2.0.4  :
 v2.0.3  : いろいろ実装した
 '''
 
+wakeup_message = f'TwitchTransFreeNext v.{version}, by さぁたん @saatan_pion and さよなりω @husband_sayonari_omega'
+
 #####################################
 # 初期設定 ###########################
 
 # configure for Google TTS & play
-TMP_DIR = f'{os.path.dirname(sys.argv[0])}/tmp/'
+TMP_DIR = os.path.join(os.getcwd(), 'tmp')
 
 # translate.googleのサフィックスリスト
 URL_SUFFIX_LIST = [re.search('translate.google.(.*)', url.strip()).group(1) for url in constant.DEFAULT_SERVICE_URLS]
@@ -57,6 +71,8 @@ TargetLangs = ["af", "sq", "am", "ar", "hy", "az", "eu", "be", "bn", "bs", "bg",
                 "lo", "la", "lv", "lt", "lb", "mk", "mg", "ms", "ml", "mt", "mi", "mr", "mn", "my", "ne", "no", "ps", "fa",
                 "pl", "pt", "ma", "ro", "ru", "sm", "gd", "sr", "st", "sn", "sd", "si", "sk", "sl", "so", "es", "su", "sw",
                 "sv", "tg", "ta", "te", "th", "tr", "uk", "ur", "uz", "vi", "cy", "xh", "yi", "yo", "zu"]
+
+deepl_lang_dict = {'de':'DE', 'en':'EN', 'fr':'FR', 'es':'ES', 'pt':'PT', 'it':'IT', 'nl':'NL', 'pl':'PL', 'ru':'RU', 'ja':'JA', 'zh-CN':'ZH'}
 
 ##########################################
 # load config text #######################
@@ -83,13 +99,8 @@ if hasattr(config, 'gTTS_Out') and not hasattr(config, 'TTS_Out'):
     print('[warn] gTTS_Out is already deprecated, please use TTS_Out instead.')
     config.TTS_Out = config.gTTS_Out
 
-# DeepLの翻訳言語リストをコンフィグから読み込み
-deepl_lang_dict = config.DeeplTrans
 
-# 単語置換リストをコンフィグから読み込み
-rep_words       = config.Replace_Words
-
-# 無視言語リストの準備 ################
+# 無視言語リストの準備 ##################
 Ignore_Lang = [x.strip() for x in config.Ignore_Lang]
 
 # 無視ユーザリストの準備 ################
@@ -98,10 +109,13 @@ Ignore_Users = [x.strip() for x in config.Ignore_Users]
 # 無視ユーザリストのユーザ名を全部小文字にする
 Ignore_Users = [str.lower() for str in Ignore_Users]
 
-# 無視テキストリストの準備 ################
+# 無視テキストリストの準備 ##############
 Ignore_Line = [x.strip() for x in config.Ignore_Line]
 
-# 無視単語リストの準備 ################
+# 無視単芝リストの準備 #################
+Ignore_WWW = [x.strip() for x in config.Ignore_WWW]
+
+# 無視単語リストの準備 #################
 Delete_Words = [x.strip() for x in config.Delete_Words]
 
 # suffixのチェック、google_trans_newインスタンス生成
@@ -118,6 +132,26 @@ tts = tts.TTS(config)
 sound = sound.Sound(config)
 
 ##########################################
+# cacert.pem の場所を特定
+if getattr(sys, 'frozen', False):
+    # PyInstaller でビルドされた場合
+    bundle_dir = sys._MEIPASS
+else:
+    # 通常の Python スクリプトとして実行された場合
+    bundle_dir = os.path.dirname(os.path.abspath(__file__))
+
+cacert_path = os.path.join(bundle_dir, 'cacert.pem')
+# cacert_path = os.path.join(bundle_dir, 'data', 'cacert.pem') # dataフォルダに配置した場合
+
+# 環境変数 SSL_CERT_FILE を設定
+os.environ['SSL_CERT_FILE'] = cacert_path
+
+# cacert.pem が存在するか確認
+if not os.path.exists(cacert_path):
+    print(f"Error: cacert.pem not found at {cacert_path}")
+    sys.exit(1)
+
+##########################################
 # 関連関数 ################################
 ##########################################
 
@@ -125,7 +159,7 @@ sound = sound.Sound(config)
 # Google Apps Script 翻訳
 async def GAS_Trans(session, text, lang_source, lang_target):
     if text is None:
-        config.Debug: print("[GAS_Trans] text is empty")
+        if config.Debug: print("[GAS_Trans] text is empty")
         return False
 
     url = config.GAS_URL
@@ -146,24 +180,67 @@ async def GAS_Trans(session, text, lang_source, lang_target):
             if config.Debug: print("[GAS_Trans] post failed...")
         return False
 
-async def non_twitch_emotes(channel:str):
-    emotes_list = [] # List of non-Twitch emotes
-    conn = hc("emotes.adamcy.pl") # non-Twitch emotes API
-    # Get non-Twitch channel emotes
-    for path in [f"/v1/channel/{channel}/emotes/bttv.7tv.ffz","/v1/global/emotes/bttv.7tv.ffz"]:
-        conn.request("GET", path) # Get non-Twitch emotes
-        resp = conn.getresponse() # Get API response
-        for i in json.loads(resp.read()):
-            emotes_list.append(i['code'])
-    return emotes_list
+# async def non_twitch_emotes(channel:str):
+#     emotes_list = [] # List of non-Twitch emotes
+#     conn = hc("emotes.adamcy.pl") # non-Twitch emotes API
+    
+#     # Get non-Twitch channel emotes
+#     for path in [f"/v1/channel/{channel}/emotes/bttv.7tv.ffz","/v1/global/emotes/bttv.7tv.ffz"]:
+#         conn.request("GET", path) # Get non-Twitch emotes
+#         resp = conn.getresponse() # Get API response
+#         for i in json.loads(resp.read()):
+#             emotes_list.append(i['code'])
+#     return emotes_list
+
+#####################################
+# _MEI cleaner  -------------
+# Thanks to Sadra Heydari @ https://stackoverflow.com/questions/57261199/python-handling-the-meipass-folder-in-temporary-folder
+import glob
+import sys
+import os
+from shutil import rmtree
+
+def CLEANMEIFOLDERS():
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    if config.Debug: print(f'_MEI base path: {base_path}')
+    
+    # Get the parent directory in a cross-platform way
+    parent_dir = os.path.dirname(base_path)
+    
+    # Get all directories in the parent directory
+    try:
+        all_dirs = [os.path.join(parent_dir, d) for d in os.listdir(parent_dir) 
+                   if os.path.isdir(os.path.join(parent_dir, d))]
+        
+        # Filter for _MEI directories
+        mei_folders = [d for d in all_dirs if '_MEI' in d]
+        
+        # Sort by creation time
+        mei_folders = sorted(mei_folders, key=os.path.getctime)
+        
+        # Remove all but the newest folder
+        if len(mei_folders) > 1:
+            for item in mei_folders[:-1]:
+                if config.Debug: print(f'Removing old _MEI folder: {item}')
+                rmtree(item)
+    except Exception as e:
+        if config.Debug: print(f'Error cleaning _MEI folders: {e}')
+    
+    # if len(mei_folders) > 1:
+    #     for item in mei_folders:
+    #         if item.find('_MEI') != -1 and item != sys._MEIPASS + "\\":
+    #             rmtree(item)
+
+
+
 
 ##########################################
 # メイン動作 ##############################
 ##########################################
-
-def trans_word(inputtext):
-    replacements = rep_words
-    return re.sub('({})'.format('|'.join(map(re.escape, replacements.keys()))), lambda m: replacements[m.group()], inputtext)
 
 class Bot(commands.Bot):
 
@@ -178,11 +255,8 @@ class Bot(commands.Bot):
     async def event_channel_joined(self, channel):
         'Called once when the bot goes online.'
         print(f"{self.nick} is online!")
-        if not config.Trans_TextColor == '':
-            await channel.send(f"/color {config.Trans_TextColor}")
-        if not config.Start_Message == '':
-            await channel.send(f"/me {config.Start_Message}")
-
+        await channel.send(f"/color {config.Trans_TextColor}")
+        await channel.send(f"/me {wakeup_message}")
 
     # メッセージを受信したら ####################
     async def event_message(self, msg):
@@ -203,7 +277,7 @@ class Bot(commands.Bot):
         # 変数入れ替え ------------------------
         message = msg.content
         user    = msg.author.name.lower()
-        non_twitch_emote_list = await non_twitch_emotes(config.Twitch_Channel)
+        # non_twitch_emote_list = await non_twitch_emotes(config.Twitch_Channel)
 
         # 無視ユーザリストチェック -------------
         if config.Debug: print('USER:{}'.format(user))
@@ -214,6 +288,11 @@ class Bot(commands.Bot):
         for w in Ignore_Line:
             if w in message:
                 return
+            
+        # 単芝チェック ------------------------
+        # １行が単芝だけだったら無視
+        if message in Ignore_WWW:
+            return
 
         # emoteの削除 --------------------------
         # エモート抜き出し
@@ -250,13 +329,14 @@ class Bot(commands.Bot):
                         # リストにエモートを追加
                         emote_list.append(msg.content[int(e_s):int(e_e)+1])
 
-        # en:Remove non-Twitch emotes from message     ja:メッセージからTwitch以外のエモートを削除
-        temp_msg = message.split(' ')
-        # en:Place non-Twitch emotes in temporary variable  ja:Twitch以外のエモートを一時的な変数に配置する。
-        nte = list(set(non_twitch_emote_list) & set(temp_msg)) # nte = "non-Twitch emotes"
-        for i in nte:
-            if config.Debug: print(i)
-            emote_list.append(i)
+        # # en:Remove non-Twitch emotes from message     ja:メッセージからTwitch以外のエモートを削除
+        # temp_msg = message.split(' ')
+        # # en:Place non-Twitch emotes in temporary variable  ja:Twitch以外のエモートを一時的な変数に配置する。
+        # nte = list(set(non_twitch_emote_list) & set(temp_msg)) # nte = "non-Twitch emotes"
+        # for i in nte:
+        #     if config.Debug: print(i)
+        #     emote_list.append(i)
+
         # en:Place unicode emoji in temporary variable  ja:ユニコード絵文字をテンポラリ変数に入れる
         uEmoji = distinct_emoji_list(message) # uEmoji = "Unicode Emoji"
         for i in uEmoji:
@@ -280,19 +360,6 @@ class Bot(commands.Bot):
 
         # 複数空文字を一つにまとめる --------
         message = " ".join( message.split() )
-
-        # 置換実施
-        message = trans_word(message)
-
-        # Ignore_Only_wwが有効時、w(ｗ)しかないメッセージを削除
-        if config.Ignore_Only_ww:
-            message = re.sub('^w*w$','',message)
-            message = re.sub('^ｗ*ｗ$','',message)
-
-        # sdtd_Modeが有効時、7days to die用のメッセージを削除
-        if config.sdtd_Mode:
-            message = re.sub('^#.*','',message)
-            message = re.sub('.*\[7DTD\].*','',message)
 
         if not message:
             return
@@ -329,6 +396,11 @@ class Bot(commands.Bot):
         # 翻訳先言語の選択 ---------------
         if config.Debug: print(f'--- Select Destinate Language ---')
         lang_dest = config.lang_TransToHome if lang_detect != config.lang_TransToHome else config.lang_HomeToOther
+
+        # zh-TW バグ対応（言語検出系はzh-TWだが，翻訳系はzh-twにしないといけない）
+        if lang_dest == 'zh-TW':
+            lang_dest = 'zh-tw'
+
         if config.Debug: print(f"lang_detect:{lang_detect} lang_dest:{lang_dest}")
 
         # 翻訳先言語が文中で指定されてたら変更 -------
@@ -350,12 +422,8 @@ class Bot(commands.Bot):
         #     in_text = in_text[0:int(config.TooLong_Cut)]
         if config.TTS_In: tts.put(in_text, lang_detect)
 
-        # 検出言語と翻訳先言語が同じ、検出言語もしくは翻訳先言語が特定できない場合は無視！
+        # 検出言語と翻訳先言語が同じだったら無視！
         if lang_detect == lang_dest:
-            return
-        if lang_detect == '':
-            return
-        if lang_dest == '':
             return
 
         ################################
@@ -421,7 +489,12 @@ class Bot(commands.Bot):
             await db.save(in_text,translatedText,lang_dest)
 
         # チャットへの投稿 ----------------
-        # 投稿内容整形 & 投稿
+
+        # 翻訳後のメッセージでも，削除単語リストチェック＆削除 --------------
+        for w in Delete_Words:
+            translatedText = translatedText.replace(w, '')
+
+        # 投稿内容整形(名前，言語表示)-------------
         out_text = translatedText
         if config.Show_ByName:
             out_text = '{} [by {}]'.format(out_text, user)
@@ -431,12 +504,10 @@ class Bot(commands.Bot):
         # コンソールへの表示 --------------
         print(out_text)
 
-        # sendmodeがFalseの場合送信しない
-        # en:If message is only emoji; then do not translate, and do not send a message
-        # ja:メッセージが絵文字だけの場合は、翻訳せず、メッセージを送らないでください
-        if in_text is not None:
-            if config.sendmode:
-                await msg.channel.send("/me " + out_text)
+        # チャットへの投稿 --------------
+        # 翻訳結果がない時は投稿しない　(つまり：translatedTextが空でない時は投稿する！)
+        if translatedText and (in_text is not None) and config.Send:
+            await msg.channel.send("/me " + out_text)
 
         # 音声合成（出力文） --------------
         # if len(translatedText) > int(config.TooLong_Cut):
@@ -454,10 +525,6 @@ class Bot(commands.Bot):
     async def sound(self, ctx):
         sound_name = ctx.message.content.strip().split(" ")[1]
         sound.put(sound_name)
-
-    @commands.command(name='des')
-    async def des(self, ctx):
-        await ctx.send(version+':'+description)
 
     @commands.command(name='timer')
     async def timer(self, ctx):
@@ -493,6 +560,9 @@ class Bot(commands.Bot):
 # メイン処理 ###########################
 def main():
     try:
+        # 以前に生成された _MEI フォルダを削除する
+        CLEANMEIFOLDERS()
+
         # 初期表示 -----------------------
         print('twitchTransFreeNext (Version: {})'.format(version))
         print('Connect to the channel   : {}'.format(config.Twitch_Channel))
@@ -506,7 +576,7 @@ def main():
             if config.Debug: print(f'GAS URL: {config.GAS_URL}')
 
         # 作業用ディレクトリ削除 ＆ 作成 ----
-        if config.Debug: print("making tmp dir...")
+        if config.Debug: print(f"making tmp dir...: {TMP_DIR}")
         if os.path.exists(TMP_DIR):
             shutil.rmtree(TMP_DIR)
 

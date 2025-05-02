@@ -1,22 +1,126 @@
-# twitchTransFreeNext CustomBuild
-[日本語解説](#日本語)
+# twitchTransFreeNext
+Next Generation of twitchTransFree!!!!
 
-This software is for Windows7 or later Only<br />
-Original ttfn(twitchtransFN) is here https://github.com/sayonari/twitchTransFreeNext
+# Official Webpage
+http://www.sayonari.com/trans_asr/
 
-# Download
-[latest Release](https://github.com/crest-streamer/twitchTransFreeNext/releases/latest)<br />
-To run on Windows 7 or later<br />
-twitchTransFN_windows.zip<br />
-If Security Soft Block then try<br />
-twitchTransFN_win_pyinstallerfix<br />
-To run on MacOS Intel Chip<br />
-twitchTransFN_macos.tar.gz<br />
-To run on Linux<br />
-twitchTransFN_linux.tar.gz<br />
-<br /><br />
-To run on any OS with Python<br />
-twitchTransFN_python.zip
+# USAGE
+1. rewrite `config.py`
+2. double-click `twitchTransFN.exe`
+
+That's all!
+
+NOTE: The file type of config was chaged from .txt to .py!
+
+# I support my wife 24/7 :-) 
+This software is made for my wife!  
+http://twitch.tv/saatan_pion/  
+If you are satisfied by this software, please watch my wife's stream! We are waiting for comming you! and subscribe! donation!
+
+# We welcome your DONATE!!!!
+Donation is possible from the following link!  
+もし便利だなと思ったら．以下からDONATEしてください．開発中に食べるお菓子代にします！！！  
+https://twitch.streamlabs.com/saatan_pion#/
+
+# Please link from your page!
+プログラム使うときには，twitchページからリンクを張ってくれたら嬉しいです！（強制ではないです）
+
+さぁたんチャンネルと，翻訳ちゃんのページにリンクを貼っていただけると良いですが，紹介文は各自で考えてくださいρ
+
+[example]  
+Twitch: saatan  
+http://twitch.tv/saatan_pion/ 
+
+Software: twitchTransFreeNext  
+https://github.com/sayonari/twitchTransFreeNext
+
+紹介用の絵も頂いちゃいました．使ってください．  
+![trans_anomon](https://user-images.githubusercontent.com/16011609/49361210-c1f5ef80-f71e-11e8-8cff-6fd760e8738a.png)  
+Painted by anomon  
+https://www.twitch.tv/anomomm
+
+# config.py
+```python
+######################################################
+# PLEASE CHANGE FOLLOWING CONFIGS ####################
+Twitch_Channel          = 'target_channel_name'
+
+Trans_Username          = 'trans_user_name'
+Trans_OAUTH             = 'oauth_for_trans_user'
+
+#######################################################
+# OPTIONAL CONFIGS ####################################
+Trans_TextColor         = 'GoldenRod'
+# Blue, Coral, DodgerBlue, SpringGreen, YellowGreen, Green, OrangeRed, Red, GoldenRod, HotPink, CadetBlue, SeaGreen, Chocolate, BlueViolet, and Firebrick
+
+lang_TransToHome        = 'ja'
+lang_HomeToOther        = 'en'
+
+Show_ByName             = True
+Show_ByLang             = True
+
+Ignore_Lang             = ['']
+Ignore_Users            = ['Nightbot', 'BikuBikuTest']
+Ignore_Line             = ['http', 'BikuBikuTest', '888', '８８８']
+Ignore_WWW              = ['w', 'ｗ', 'W', 'Ｗ', 'ww', 'ｗｗ', 'WW', 'ＷＷ', 'www', 'ｗｗｗ', 'WWW', 'ＷＷＷ', '草']
+Delete_Words            = ['saatanNooBow', 'BikuBikuTest']
+
+# Any emvironment, set it to `True`, then text will be read by TTS voice!
+# TTS_In:User Input Text, TTS_Out:Bot Output Text
+TTS_In                  = True
+TTS_Out                 = True
+TTS_Kind                = "gTTS" # You can choice "CeVIO" if you want to use CeVIO as TTS.
+# CeVIO_Cast            = "さとうささら" # When you are using CeVIO, you must set voice cast name.
+TTS_TextMaxLength       = 30
+TTS_MessageForOmitting  = "以下略"
+
+# if you make TTS for only few lang, please add langID in the list
+# for example, ['ja'] means Japanese only, ['ko','en'] means Korean and English are TTS!
+ReadOnlyTheseLang       = []
+
+# Select the translate engine ('deepl' or 'google')
+Translator              = 'deepl'
+
+# Use Google Apps Script for tlanslating
+# e.g.) GAS_URL         = 'https://script.google.com/macros/s/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/exec'
+GAS_URL                 = ''
+
+# Enter the suffix of the Google Translate URL you normally use.
+# Example: translate.google.co.jp -> 'co.jp'
+#          translate.google.com   -> 'com'
+GoogleTranslate_suffix  = 'co.jp'
+
+# If you meet any bugs, You can check some error message using Debug mode (Debug = True)
+Debug                   = False
+
+```
+
+| Option| Description |
+| -- | -- |
+| Twitch_Channel | The target chat room for translation. |
+| Trans_Username | username for translation |
+| Trans_OAUTH | Get key for Trans_Username at https://twitchapps.com/tmi/ |
+| Trans_TextColor  | You can change text color of translator. |
+| lang_TransToHome | If set it to [`ja`], all texts will be translated to the JAPANESE! |
+| lang_HomeToOther | If set it to [`en`], the language in [`lang_TransToHome`] is trans to [`en`]. |
+| Show_ByName | If it is set to `True`, user name is shown after translated text. |
+| Show_ByLang | If it is set to `True`, the source language is shown after translated text. |
+| Ignore_Lang | You can set some languages : [ja,en, ...] |
+| Ignore_Users | You can set some users : [Nightbot, BikuBikuTest, someotheruser, ...] |
+| Ignore_Line | If the words are in message, the message will be ignored.|
+| Ignore_WWW | Ignore Tanshiba(単芝:just only 'w'）line. |
+| Delete_Words | The words will be removed from message. |
+| TTS_Kind | The kind of TTS, "gTTS"(default) or "CeVIO". If you want to use CeVIO, you need to install CeVIO AI in your local computer. |
+| TTS_In | Input text will be read by TTS voice! |
+| TTS_Out | Bot output text will be read by TTS voice! |
+| gTTS_In | It's deprecated config, please use TTS_In instead. |
+| gTTS_Out | It's deprecated config, please use TTS_Out instead. |
+| TTS_TextMaxLength | You can specify TTS's read comment max length. If comment has over length from this, it will omit and added TTS_MessageForOmitting on postfix. |
+| TTS_MessageForOmitting | A message for omitting TTS's read comment. The TTS puts this message  on the omitted message. |
+| CeVIO_Cast | The cast name of CeVIO, for example "さとうささら". This option is enabled only when TTS_Kind = "CeVIO". |
+| ReadOnlyTheseLang | You can set the TTS language! |
+| Debug | You can check some error message using Debug mode (Debug = True)|
+
 
 # memo
 ## support language (google translator)
@@ -29,109 +133,10 @@ Example) ru: Hello -> привет там
 
 NOTE: When rewriting config.txt, please delete the `#` mark at the beginning of each setting value!
 
-# Required Files
-<li>Executable Binaly</li>
-<pre>twitchTransFN.exe
-config.py</pre>
-<li>Execute with Python(Developer's operating environment is Python 3.9.13)</li>
-<pre>twitchTransFN.py
-build.py
-config.py
-database_controller.py
-sound.py
-tts.py
-requirements.txt</pre>
-please Edit config.py with notepad or any TextEditer.
-if completed edit then Overwrite.
-
-<hr>
-# Customize point
-  <li><s>Remove TTS related</s></li>
-  <li>Can Edit Ready Message(original message is "has landed!" but this ver deleted)</li>
-  if you want no message send then blank of Start_Message 
-  <li>Enabled color selection</li>
-  if you want your setting color then blank of Trans_TextColor
-  <li>Don't translate emotes-only chats</li>
-  <li>Add setting to convert specific words to specified words</li>
-  <li>Add setting W-only comments are not translated</li>
-  <li>Add "!des" command. this is Chat about the last update description</li>
-  <li>Add setting sdtd_Mode(for 7Days to Die)</li>
-  <li>Add setting sendmode(if True then Send Chat/False then not Send Chat)</li>
-  <hr>
-
-# How to Execute with Python
-1.Install Python3.x(Developer's operating environment is Python 3.11.0)<br>
-2.run command with Command Pronpt/Terminal # pip(or pip3 or pip3.x) install -r requirements.txt<br />
-3.run command with Command Pronpt/Terminal # python(or python3 or python3.x) twitchTransFN.py<br />
-4.If it translates after a test chat, it is a success. enjoy!<br />
-5.Ctrl+C is Terminate<br />
-  <hr>
-  
-# 日本語
-
-# twitchTransFreeNext CustomBuild
-本ソフトウェアはWindows7以降専用です。それ以前のOSやMac/Linuxに関してはpythonで実行してください。<br />
-オリジナルの翻訳ちゃんFreeNextは https://github.com/sayonari/twitchTransFreeNext です。(大感謝！)
-
-# ダウンロード
-[最新版](https://github.com/crest-streamer/twitchTransFreeNext/releases/latest)<br />
-Windows7以降の方は下記を<br />
-twitchTransFN_windows.zip<br />
-もしセキュリティソフトがウィルスと判定される場合は以下をお試しください。<br />
-twitchTransFN_win_pyinstallerfix.zip<br />
-MacOS(Intelチップ)の方は下記を<br />
-twitchTransFN_macos.tar.gz<br />
-Linuxの方は下記を<br />
-twitchTransFN_linux.tar.gz<br />
-<br /><br />
-OS問わずPythonで実行する方は「twitchTransFN_python.zip」を<br />
-ダウンロードして下さい。
-
-# memo
-## グーグル翻訳で対応している言語一覧
-https://cloud.google.com/translate/docs/languages
-
-# 必要なファイル
-<li>実行ファイル</li>
-<pre>twitchTransFN.exe
-config.py</pre>
-<li>Pythonで動かす用ファイル</li>
-<pre>twitchTransFN.py
-build.py
-config.py
-database_controller.py
-sound.py
-tts.py
-requirements.txt</pre>
-config.pyをメモ帳等で開き、編集して保存してください。<br />
-
-# 変更点
-  <li><s>読み上げ機能関連を全削除</s>c2.5.1_3で復活
-  <li>準備完了時の「has landed!」チャットを削除。代わりに自分の入れたいメッセージを入力可能。<br />
-    もし何もチャットしたくない場合は「Start_Message」の項目を「''」に設定してください。
-  <li>色選択を自分で設定出来るように変更<br />
-    翻訳用アカウントで「/color #FF0000」等で色を指定し、それを維持したい時は<br />
-    「Trans_TextColor」の項目を「''」に設定してください。<br />
-    色の名前を入力した場合はオリジナルと同様に色変更を行います。
-  <li>スタンプのみのチャットは翻訳しない</li>
-  <li>特定の単語を指定した単語に変換する設定の追加</li>
-  <li>wのみのコメントを翻訳しない設定の追加</li>
-  <li>!desコマンドの追加(最新のverup情報をコメントします)</li>
-  <li>sdtd_Modeの設定を追加(7Days to Die用モード)</li>
-  <li>sendmodeの設定を追加(翻訳後をチャット欄に送信する/しないモード)</li>
-<hr>
-    
-# Pythonでの実行方法
-1.Python3.xをインストールします。(開発者の動作環境は3.11.0です)<br />
-2.「pip(or pip3 or pip3.x) install -r requirements.txt」をコマンドプロンプト/ターミナル/端末で実行します。<br />
-3.「python(or python3 or python3.x) twitchTransFN.py」をコマンドプロンプト/ターミナル/端末で実行します。<br />
-4.テストチャットをして翻訳されれば成功です。<br />
-5.コマンドプロンプト/ターミナル/端末で「Ctrl+C」キーを同時押しすると終了します。<br />
-    
 ## command: (version)
 `!ver`: print the software version.
 
-`!des`: Chat about the last update description.
+`!sound xxxx`: play sound (xxxx.mp3), if you put sound data at sound folder.
 
 # Thanks
 Thanks to Pioneers!
@@ -139,6 +144,10 @@ The developer of ...
 - Google
 - googletrans by ssut
     - https://github.com/ssut/py-googletrans
+- gtts by pndurette
+    - https://github.com/pndurette/gTTS
+- playsound by TaylorSMarks
+    - https://github.com/TaylorSMarks/playsound
 - TwitchIO
     - https://github.com/TwitchIO/TwitchIO
 
@@ -151,7 +160,3 @@ The developer of ...
 | Webpage | http://www.sayonari.com/trans_asr/ |
 | mail | sayonari@gmail.com |
 | Twitter | [sayonari](https://twitter.com/sayonari) |
-
-# Special Thanks
-[sayonari(西村良太)大先生](https://github.com/sayonari/twitchTransFreeNext) <br />
-[yuniruyuni大先生](https://github.com/yuniruyuni)

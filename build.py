@@ -55,7 +55,7 @@ def build_for_os(os_name, arch, add_data_option):
 
     # macOSの場合、AppKitを試す（必要に応じて）
     if os_name == "macos":
-        include_modules.append("--include-module=appkit")
+        include_modules.append("--include-module=AppKit")
 
     # コマンド構築
     if os_name == "windows":

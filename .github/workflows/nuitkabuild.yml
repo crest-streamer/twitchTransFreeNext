@@ -96,11 +96,13 @@ jobs:
           fi
 
       - name: Import GPG Keys
+        if: env.GPG_KEY_ID != '' && secrets.GPG_PRIVATE_KEY != ''
         run: |
           echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
           echo "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --batch --import
 
       - name: GPG Sign Archive
+        if: env.GPG_KEY_ID != '' && env.GPG_PASSPHRASE != ''
         run: |
           ARCHIVE_FILE="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.${{ matrix.archive }}"
           echo "$GPG_PASSPHRASE" | \
@@ -108,6 +110,7 @@ jobs:
               --local-user "$GPG_KEY_ID" \
               --output "${ARCHIVE_FILE}.sig" \
               --detach-sign "$ARCHIVE_FILE"
+
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v1

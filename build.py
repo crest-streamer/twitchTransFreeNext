@@ -97,7 +97,7 @@ def build_for_os(os_name, arch, add_data_option):
             "--standalone",
             "--onefile",
             "--output-dir=dist",
-            "--linux--icon=icon.ico",
+            "--linux-icon=icon.ico",
             add_data_option,
             "--tempdir=."
         ] + include_modules + ["twitchTransFN.py"]

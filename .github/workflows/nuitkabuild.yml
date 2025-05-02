@@ -96,20 +96,27 @@ jobs:
           fi
 
       - name: Import GPG Keys
-        if: env.GPG_KEY_ID != '' && secrets.GPG_PRIVATE_KEY != ''
         run: |
+          if [[ -z "${{ secrets.GPG_PRIVATE_KEY }}" || -z "${{ secrets.GPG_PUBLIC_KEY }}" ]]; then
+            echo "GPG keys are not set. Skipping GPG import."
+            exit 0
+          fi
           echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
           echo "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --batch --import
 
       - name: GPG Sign Archive
-        if: env.GPG_KEY_ID != '' && env.GPG_PASSPHRASE != ''
         run: |
-          ARCHIVE_FILE="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.${{ matrix.archive }}"
-          echo "$GPG_PASSPHRASE" | \
-            gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
-              --local-user "$GPG_KEY_ID" \
-              --output "${ARCHIVE_FILE}.sig" \
-              --detach-sign "$ARCHIVE_FILE"
+          if [ -n "${{ secrets.GPG_KEY_ID }}" ] && [ -n "${{ secrets.GPG_PASSPHRASE }}" ]; then
+            ARCHIVE_FILE="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.${{ matrix.archive }}"
+            echo "$GPG_PASSPHRASE" | \
+              gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+                --local-user "${{ secrets.GPG_KEY_ID }}" \
+                --output "${ARCHIVE_FILE}.sig" \
+                --detach-sign "$ARCHIVE_FILE"
+          else
+            echo "Skipping GPG signing due to missing keys or passphrase."
+          fi
+
 
 
       - name: Upload release assets

@@ -86,17 +86,6 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Detected version: $VERSION"
 
-      - name: Archive binaries
-        run: |
-          ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
-          mv dist "$ARCHIVE_NAME"
-
-          if [[ "${{ matrix.archive }}" == "zip" ]]; then
-            zip -r "${ARCHIVE_NAME}.zip" "$ARCHIVE_NAME"
-          else
-            tar -czvf "${ARCHIVE_NAME}.tar.gz" "$ARCHIVE_NAME"
-          fi
-
       # GPGのインポート処理
       - name: Import GPG Keys (Linux)
         if: ${{ matrix.os == 'ubuntu-latest' && env.GPG_PRIVATE_KEY != '' && env.GPG_PUBLIC_KEY != '' }}
@@ -125,7 +114,14 @@ jobs:
         shell: bash
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
-          BIN_PATH="$ARCHIVE_NAME/${{ matrix.bin }}"
+          BIN_PATH="dist/${{ matrix.bin }}"
+          
+          # ファイルが存在するか確認
+          if [ ! -f "$BIN_PATH" ]; then
+            echo "Error: Binary file not found at $BIN_PATH"
+            exit 1
+          fi
+
           echo "$GPG_PASSPHRASE" | \
             gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
               --local-user "$GPG_KEY_ID" \
@@ -135,6 +131,9 @@ jobs:
       - name: Archive binaries with .sig
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
+          mkdir -p "$ARCHIVE_NAME"
+          mv dist/* "$ARCHIVE_NAME"  # distの中身を移動
+
           if [[ "${{ matrix.archive }}" == "zip" ]]; then
             zip -r "${ARCHIVE_NAME}.zip" "$ARCHIVE_NAME"
           else

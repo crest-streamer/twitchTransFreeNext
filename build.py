@@ -131,11 +131,11 @@ def main(target_os):
 
     # 各OS向けにビルド
     if target_os == "windows":
-        build_for_os("windows", "", "--include-data-file==cacert.pem=cacert.pem")
+        build_for_os("windows", "", "--include-data-file=cacert.pem=cacert.pem")
     elif target_os == "linux":
-        build_for_os("linux", "", "--include-data-file==cacert.pem=cacert.pem")
+        build_for_os("linux", "", "--include-data-file=cacert.pem=cacert.pem")
     elif target_os == "macos_M1" or target_os == "macos_Intel":
-        add_data_option = "---include-data-file==cacert.pem=cacert.pem"
+        add_data_option = "--include-data-file=cacert.pem=cacert.pem"
         if target_os == "macos_M1":
             build_for_os("macos", "arm64", add_data_option)
         else:

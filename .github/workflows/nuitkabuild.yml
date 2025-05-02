@@ -52,12 +52,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+          # Linuxの場合のみ必要な依存関係をインストール
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
             sudo apt-get update
             sudo apt-get install -y patchelf zstd curl file libfuse2
           fi
           python -m pip install --upgrade pip setuptools wheel
-          pip install nuitka -r requirements.txt
+          pip install nuitka
+          pip install -r requirements.txt
         
       - name: Convert .ico to .icns on macOS
         if: matrix.os == 'macos-latest'
@@ -161,12 +163,4 @@ jobs:
           fi
 
       - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.${{ matrix.archive }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Cleanup
-        run: rm -rf twitchTransFN_*
+        uses: softprops

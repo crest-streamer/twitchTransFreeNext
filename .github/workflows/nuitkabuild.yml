@@ -125,6 +125,7 @@ jobs:
             --onefile `
             --follow-imports `
             --output-dir=dist `
+            --disable-cache=ccache `
             --output-filename=${{ matrix.bin }} `
             --windows-icon-from-ico=icon.ico `
             twitchTransFN.py

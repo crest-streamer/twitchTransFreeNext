@@ -71,6 +71,7 @@ def build_for_os(os_name, arch, add_data_option):
             "--onefile",
             "--output-dir=dist",
             "--assume-yes-for-downloads",
+            "--disable-ccache",
             "--windows-icon-from-ico=icon.ico",
             add_data_option,
         ] + include_modules + ["twitchTransFN.py"]
@@ -81,6 +82,7 @@ def build_for_os(os_name, arch, add_data_option):
                 "--standalone",
                 "--onefile",
                 "--output-dir=dist",
+                "--disable-ccache",
                 "--macos-app-icon=icon.icns",
                 add_data_option,
             ] + include_modules + ["twitchTransFN.py"]
@@ -90,6 +92,7 @@ def build_for_os(os_name, arch, add_data_option):
                 "--standalone",
                 "--onefile",
                 "--output-dir=dist",
+                "--disable-ccache",
                 "--macos-app-icon=icon.icns",
                 "--macos-create-app-bundle",
                 add_data_option,
@@ -100,6 +103,7 @@ def build_for_os(os_name, arch, add_data_option):
             "--standalone",
             "--onefile",
             "--output-dir=dist",
+            "--disable-ccache",
             "--linux-icon=icon.ico",
             add_data_option,
         ] + include_modules + ["twitchTransFN.py"]

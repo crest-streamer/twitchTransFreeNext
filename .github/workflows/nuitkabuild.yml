@@ -59,6 +59,9 @@ jobs:
       - name: Create dist directory
         run: mkdir -p dist
 
+      - name: run Build.py
+        run: python build.py
+
       - name: Get Version (Unix)
         id: get_version_unix
         if: runner.os != 'Windows'

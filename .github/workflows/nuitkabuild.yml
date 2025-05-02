@@ -111,16 +111,23 @@ jobs:
           gpg --batch --passphrase "${{ env.GPG_PASSPHRASE }}" -u "${{ env.GPG_KEY_ID }}" -o "${ARCHIVE_FILE}.sig" --detach-sig --armor "${ARCHIVE_FILE}"
           echo "Created GPG signature: ${ARCHIVE_FILE}.sig"
 
-      # GPG 署名 (Windows)
-      - name: GPG Sign Archive (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
+      - name: Import GPG key and sign artifacts
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
-          ARCHIVE_BASE="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
-          ARCHIVE_FILE="${ARCHIVE_BASE}.${{ matrix.archive }}"
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import --passphrase "${{ env.GPG_PASSPHRASE }}"
-          gpg --batch --passphrase "${{ env.GPG_PASSPHRASE }}" -u "${{ env.GPG_KEY_ID }}" -o "${ARCHIVE_FILE}.sig" --detach-sig --armor "${ARCHIVE_FILE}"
-          echo "Created GPG signature: ${ARCHIVE_FILE}.sig"
+          echo "Importing GPG keys..."
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "$GPG_PUBLIC_KEY" | gpg --batch --import
+
+          echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --local-user "$GPG_KEY_ID" \
+            --output "dist/${{ matrix.bin }}.sig" \
+            --detach-sign "dist/${{ matrix.bin }}"
+
+          echo "Signature created: dist/${{ matrix.bin }}.sig"
 
       - name: List Files Before Release (Unix)
         if: runner.os != 'Windows'

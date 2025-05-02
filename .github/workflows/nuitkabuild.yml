@@ -2,8 +2,8 @@ name: Build Binaries and Create Release
 
 on:
   push:
-    branches:
-      - master
+    tags:
+      - "c*"
 
 env:
   GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}

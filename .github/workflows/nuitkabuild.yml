@@ -110,7 +110,7 @@ jobs:
           mkdir -p dist
           nuitka --standalone --onefile --follow-imports \
             --output-dir=dist \
-            --disable--cache=ccache \
+            --disable-cache=ccache \
             --output-filename=${{ matrix.bin }} \
             twitchTransFN.py \
             $(if [[ "${{ matrix.env }}" == "windows" ]]; then echo "--windows-icon-from-ico=icon.ico"; elif [[ "${{ matrix.env }}" == "linux" ]]; then echo "--linux-icon=icon.ico"; else echo "--macos-app-icon=icon.icns --macos-create-app-bundle"; fi)

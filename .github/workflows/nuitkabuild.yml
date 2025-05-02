@@ -143,14 +143,41 @@ jobs:
 
       - name: Archive Binary (zip)
         if: matrix.archive == 'zip'
-        run: powershell -Command "Compress-Archive -Path dist/${{ matrix.bin }} -DestinationPath twitchTransFN_${{ env.VERSION }}_${{ matrix.env }}.zip"
+        shell: pwsh
+        run: |
+          $version = "${{ env.VERSION }}"
+          $envName = "${{ matrix.env }}"
+          $archiveName = "twitchTransFN_${version}_${envName}"
+          $sourcePath = "dist/${{ matrix.bin }}"
+          $extension = [System.IO.Path]::GetExtension($sourcePath)
+          $targetPath = "dist/${archiveName}${extension}"
+          if (-Not (Test-Path $sourcePath)) {
+            Write-Error "File $sourcePath not found"
+            exit 1
+          }
+          Rename-Item -Path $sourcePath -NewName $targetPath
+          if (Test-Path "${archiveName}.zip") {
+            Remove-Item "${archiveName}.zip"
+          }
+          Compress-Archive -Path $targetPath -DestinationPath "${archiveName}.zip"
+
 
       - name: Archive Binary (tar.gz)
         if: matrix.archive == 'tar.gz'
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ env.VERSION }}_${{ matrix.env }}"
-          mv dist "$ARCHIVE_NAME"
-          tar -czvf "$ARCHIVE_NAME.tar.gz" "./dist/$ARCHIVE_NAME"
+          mkdir "$ARCHIVE_NAME"
+          mv "dist/${{ matrix.bin }}" "$ARCHIVE_NAME/"
+
+          # 不要なフォルダを削除
+          rm -rf "$ARCHIVE_NAME/twitchTransFN.build"
+          rm -rf "$ARCHIVE_NAME/twitchTransFN.onefile-build"
+          rm -rf "$ARCHIVE_NAME/twitchTransFN.dist"
+          rm -rf "$ARCHIVE_NAME/Resources"
+
+          tar -czvf "$ARCHIVE_NAME.tar.gz" "$ARCHIVE_NAME"
+
+
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1

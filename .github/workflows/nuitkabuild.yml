@@ -66,7 +66,6 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           mkdir icon.iconset
-          sips -s format png icon.ico --out icon.png
           sips -z 16 16     icon.png --out icon.iconset/icon_16x16.png
           sips -z 32 32     icon.png --out icon.iconset/icon_16x16@2x.png
           sips -z 32 32     icon.png --out icon.iconset/icon_32x32.png
@@ -110,7 +109,7 @@ jobs:
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             ICON_OPT="--windows-icon-from-ico=icon.ico"
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            ICON_OPT="--macos-app-icon=icon.ico"
+            ICON_OPT="--macos-app-icon=icon.icns"
           elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             ICON_OPT="--linux-icon=icon.ico"
           fi

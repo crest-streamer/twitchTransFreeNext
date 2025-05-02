@@ -163,4 +163,12 @@ jobs:
           fi
 
       - name: Upload to GitHub Release
-        uses: softprops
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.${{ matrix.archive }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup
+        run: rm -rf twitchTransFN_*

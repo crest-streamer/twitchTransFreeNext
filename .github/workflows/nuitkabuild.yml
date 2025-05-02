@@ -121,14 +121,6 @@ jobs:
           COMMON_ARGS="--standalone --onefile --follow-imports --output-dir=dist --output-filename=${{ matrix.bin }}"
           nuitka $COMMON_ARGS --macos-app-icon=icon.icns --macos-create-app-bundle twitchTransFN.py
 
-      - name: Sign the binary with GPG
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: |
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-          gpg --batch --yes --passphrase "$GPG_PASSPHRASE" -ab dist/${{ matrix.bin }}
-
       - name: Archive Binary (zip)
         if: matrix.archive == 'zip'
         run: powershell Compress-Archive -Path dist/* -DestinationPath twitchTransFN_${{ env.VERSION }}_${{ matrix.env }}.zip

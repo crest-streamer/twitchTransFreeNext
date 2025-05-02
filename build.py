@@ -39,7 +39,7 @@ def build_for_os(os_name, arch, add_data_option):
     # 必要なモジュールを明示的に指定
     include_modules = [
         "--include-package=async_google_trans_new",  # AsyncTranslatorとconstant用
-        "--include-package=gTTS",                    # gTTS用
+        "--include-package=gtts",                    # gTTS用
         "--include-package=playsound",               # playsound用（macOSでは代替手段あり）
         "--include-package=deepl",                   # deepl用
         "--include-package=twitchio",                # twitchio用

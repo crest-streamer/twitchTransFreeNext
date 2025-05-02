@@ -81,8 +81,8 @@ jobs:
       - name: Get Version
         id: get_version
         run: |
-          VERSION=$(grep "version =" twitchTransFN.py | awk -F "'" '{print $2}')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          $VERSION = (Select-String -Pattern "version =" twitchTransFN.py).Line -replace ".*'([^']+)'.*", '$1'
+          Write-Output "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build with Nuitka
         run: |

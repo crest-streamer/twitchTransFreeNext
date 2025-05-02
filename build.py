@@ -23,7 +23,6 @@ def get_version():
         print(f"Error reading file: {e}")
     
     # バージョン情報が取得できない場合は、環境変数から取得を試みる
-    import os
     if "VERSION" in os.environ:
         return os.environ["VERSION"]
     
@@ -37,19 +36,39 @@ def build_for_os(os_name, arch, add_data_option):
     if os.path.exists("dist"):
         shutil.rmtree("dist")
     
-    # build
+    # 必要なモジュールを明示的に指定
+    include_modules = [
+        "--include-package=async_google_trans_new",  # AsyncTranslatorとconstant用
+        "--include-package=gTTS",                    # gTTS用
+        "--include-package=playsound",               # playsound用（macOSでは代替手段あり）
+        "--include-package=deepl",                   # deepl用
+        "--include-package=twitchio",                # twitchio用
+        "--include-package=emoji",                   # emoji用
+        "--include-module=tts",                      # カスタムモジュール
+        "--include-module=sound",                    # カスタムモジュール
+        "--include-module=database_controller",      # カスタムモジュール
+    ]
+
+    # Windowsの場合、pywin32を追加
+    if os_name == "windows":
+        include_modules.append("--include-package=pywin32")
+
+    # macOSの場合、AppKitを試す（必要に応じて）
+    if os_name == "macos":
+        include_modules.append("--include-module=AppKit")
+
+    # コマンド構築
     if os_name == "windows":
         command = [
             "nuitka",
             "--standalone",
             "--onefile",
             "--output-dir=dist",
-            "--follow-imports",
-            "--windows-icon-from-ico=icon.ico",  # アイコン設定を追加
+            "--assume-yes-for-downloads",
+            "--windows-icon-from-ico=icon.ico",
             add_data_option,
             "--tempdir=."
-            "twitchTransFN.py"
-        ]
+        ] + include_modules + ["twitchTransFN.py"]
     elif os_name == "macos":
         if arch == "arm64":
             command = [
@@ -57,36 +76,32 @@ def build_for_os(os_name, arch, add_data_option):
                 "--standalone",
                 "--onefile",
                 "--output-dir=dist",
-                "--follow-imports",
-                "--tempdir=."
-                "macos-app-icon=icon.ico",  # アイコン設定を追加
+                "--macos-app-icon=icon.icns",
                 add_data_option,
-                "twitchTransFN.py"
-            ]
+                "--tempdir=."
+            ] + include_modules + ["twitchTransFN.py"]
         elif arch == "x86_64":
             command = [
                 "nuitka",
                 "--standalone",
                 "--onefile",
                 "--output-dir=dist",
-                "--follow-imports",
-                "--tempdir=."
-                "macos-app-icon=icon.ico",  # アイコン設定を追加
+                "--macos-app-icon=icon.icns",
+                "--macos-create-app-bundle",
                 add_data_option,
-                "twitchTransFN.py"
-            ]
+                "--tempdir=."
+            ] + include_modules + ["twitchTransFN.py"]
     elif os_name == "linux":
         command = [
             "nuitka",
             "--standalone",
             "--onefile",
             "--output-dir=dist",
-            "--follow-imports",
-            "linux--icon=icon.ico",  # アイコン設定を追加
+            "--linux--icon=icon.ico",
             add_data_option,
             "--tempdir=."
-            "twitchTransFN.py"
-        ]
+        ] + include_modules + ["twitchTransFN.py"]
+    
     subprocess.run(command, check=True)
 
     # ファイル名の変更
@@ -124,7 +139,6 @@ def main(target_os):
     elif target_os == "linux":
         build_for_os("linux", "", "--add-data=cacert.pem:.")
     elif target_os == "macos_M1" or target_os == "macos_Intel":
-        # macOSの場合は区切り文字がコロン
         add_data_option = "--add-data=cacert.pem:."
         if target_os == "macos_M1":
             build_for_os("macos", "arm64", add_data_option)
@@ -134,4 +148,4 @@ def main(target_os):
     print("Build process completed.")
 
 if __name__ == "__main__":
-    main(sys.argv[0])
+    main(sys.argv[1])

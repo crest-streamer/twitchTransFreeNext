@@ -72,10 +72,18 @@ jobs:
         if: ${{ matrix.platform == 'docker' }}
         run: |
           docker run --rm -v "$PWD":/work -w /work ${{ matrix.image }} bash -c '
+            # yum のミラー修正
+            sed -i "s|^mirrorlist=|#mirrorlist=|g" /etc/yum.repos.d/CentOS-Base.repo && \
+            sed -i "s|^#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g" /etc/yum.repos.d/CentOS-Base.repo && \
+            yum clean all && yum makecache && \
+            # 必要なツールインストール
             yum install -y python3 python3-pip zip gcc gcc-c++ make curl && \
+            # Pythonパッケージのインストール
             pip3 install --upgrade pip setuptools wheel nuitka -r requirements.txt && \
+            # Nuitka ビルド
             python3 -m nuitka --standalone --onefile --output-dir=dist \
               --follow-imports --remove-output --assume-yes-for-downloads twitchTransFN.py'
+
 
       - name: Build natively (Windows/Linux/macOS)
         if: ${{ matrix.platform == 'native' }}

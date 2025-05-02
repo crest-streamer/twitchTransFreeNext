@@ -134,4 +134,4 @@ def main(target_os):
     print("Build process completed.")
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[0])

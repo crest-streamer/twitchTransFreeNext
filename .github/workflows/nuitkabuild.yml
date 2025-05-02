@@ -46,6 +46,7 @@ jobs:
       - name: Install build-essential (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt update && sudo apt install -y build-essential
+             pip install zstandard
 
       - name: Install dependencies for Nuitka (Linux/Mac)
         if: matrix.os != 'windows-latest'

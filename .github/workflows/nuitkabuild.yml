@@ -43,10 +43,6 @@ jobs:
       - name: Upgrade pip and install dependencies
         run: python -m pip install --upgrade pip setuptools wheel
 
-      - name: Install build-essential (MacOS)
-        if: matrix.os == 'macos-latest'
-        run: xcode-select --install
-
       - name: Install build-essential (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt update && sudo apt install -y build-essential
@@ -109,18 +105,19 @@ jobs:
           iconutil -c icns icon.iconset -o icon.icns
 
       - name: Build with Nuitka (Linux/macOS)
-        if: runner.os != 'Windows'
+        if: matrix.os != 'windows-latest'
         run: |
           mkdir -p dist
           nuitka --standalone --onefile --follow-imports \
             --output-dir=dist \
+            --disable-ccache \
             --output-filename=${{ matrix.bin }} \
             twitchTransFN.py \
             $(if [[ "${{ matrix.env }}" == "windows" ]]; then echo "--windows-icon-from-ico=icon.ico"; elif [[ "${{ matrix.env }}" == "linux" ]]; then echo "--linux-icon=icon.ico"; else echo "--macos-app-icon=icon.icns --macos-create-app-bundle"; fi)
 
 
       - name: Build with Nuitka (Windows)
-        if: runner.os == 'Windows'
+        if: matrix.os == 'windows-latest'
         run: |
           mkdir dist
           nuitka `
@@ -159,11 +156,11 @@ jobs:
             dist/${{ matrix.bin }}.asc
 
       - name: Clean up (Windows)
-        if: runner.os == 'Windows'
+        if: matrix.os == 'Windows'
         run: Remove-Item -Recurse -Force dist, *.tar.gz, *.zip, *.asc -ErrorAction SilentlyContinue
 
       - name: Clean up (Unix)
-        if: runner.os != 'Windows'
+        if: matrix.os != 'Windows'
         run: rm -rf dist *.tar.gz *.zip *.asc || true
 
 

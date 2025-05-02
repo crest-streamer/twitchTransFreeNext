@@ -1,4 +1,4 @@
-name: build binaries
+name: Build Binaries and Create Release
 
 on:
   push:
@@ -10,7 +10,7 @@ env:
   GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
 jobs:
-  build_matrix:
+  build:
     strategy:
       matrix:
         env: [linux, windows, macos_M1, macos_Intel]
@@ -34,24 +34,21 @@ jobs:
             archive: tar.gz
             arch: _x86_64
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    steps:
-      - name: checkout
-        uses: actions/checkout@v3
+    timeout-minutes: 20
 
-      - name: setup python
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      - name: upgrade pip and install dependencies
-        run: python -m pip install --upgrade pip setuptools wheel
-
-      - name: Install Nuitka
-        run: python -m pip install nuitka
-
-      - name: install requirements
-        run: python -m pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install nuitka
+          pip install -r requirements.txt
 
       - name: Download cacert.pem
         run: curl -o cacert.pem https://curl.se/ca/cacert.pem
@@ -59,155 +56,64 @@ jobs:
       - name: Create dist directory
         run: mkdir -p dist
 
-build:
-  runs-on:  # Specify the runner environment (e.g., Windows, macOS, Linux)
-    ${{ matrix.os }}
-  strategy:
-    matrix:
-      os: [windows-latest, macos-latest, ubuntu-latest] # Define OS platforms
-      arch:  # Define architectures for macOS
-        - x86_64
-        - arm64
-      include:  # Combine OS and arch for macOS
-        - os: macos-latest
-          arch: x86_64
-        - os: macos-latest
-          arch: arm64
-  steps:
-    - uses: actions/checkout@v3  # Checkout your repository
-    - name: Set up Python  # Set up Python (if needed for Nuitka)
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'  # Or your preferred Python version
-    - name: Install Nuitka  # Install Nuitka
-      run: pip install nuitka
-    - name: Build  # Build the application with Nuitka
-      run: |
-        python -m nuitka --standalone --onefile --output-dir=dist --follow-imports --tempdir=. ${{ matrix.os == 'windows-latest' && '--windows-icon-from-ico=icon.ico' || '' }} ${{ matrix.os == 'macos-latest' && matrix.arch == 'x86_64' && 'macos-app-icon=icon.ico' || '' }} ${{ matrix.os == 'macos-latest' && matrix.arch == 'arm64' && 'macos-app-icon=icon.ico' || '' }} ${{ matrix.os == 'ubuntu-latest' && 'linux--icon=icon.ico' || '' }}  twitchTransFN.py
-      shell: bash # Ensure bash is used (important for macOS/Linux)
-      
-      - name: run Build.py
-        run: python build.py
+      - name: Build with Nuitka
+        shell: bash
+        run: |
+          ICON_OPT=""
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            ICON_OPT="--windows-icon-from-ico=icon.ico"
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            ICON_OPT="--macos-app-icon=icon.ico"
+          elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            ICON_OPT="--linux-icon=icon.ico"
+          fi
 
-      - name: Get Version (Unix)
-        id: get_version_unix
-        if: runner.os != 'Windows'
+          python -m nuitka --standalone --onefile --output-dir=dist \
+            --follow-imports --remove-output --assume-yes-for-downloads \
+            $ICON_OPT twitchTransFN.py
+
+      - name: Get Version
+        id: get_version
+        shell: bash
         run: |
           VERSION=$(grep "version =" twitchTransFN.py | awk -F "'" '{print $2}')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version detected: $VERSION"
+          echo "Detected version: $VERSION"
 
-      - name: Get Version (Windows)
-        id: get_version_windows
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          $content = Get-Content -Path twitchTransFN.py
-          $versionLine = $content | Where-Object { $_ -match "version = '(.+)'" }
-          $version = $matches[1]
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-          echo "Version detected: $version"
-
-      - name: Set Version Variable
-        id: get_version
-        run: |
-          if [ "${{ runner.os }}" == "Windows" ]; then
-            echo "version=${{ steps.get_version_windows.outputs.version }}" >> $GITHUB_OUTPUT
-          else
-            echo "version=${{ steps.get_version_unix.outputs.version }}" >> $GITHUB_OUTPUT
-          fi
-        shell: bash
-
-      - name: archive with zip
-        if: ${{ matrix.archive == 'zip' }}
-        run: powershell Compress-Archive -Path dist/* -DestinationPath twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip
-
-      - name: archive with tar.gz
-        if: ${{ matrix.archive == 'tar.gz' }}
+      - name: Archive binaries
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
           mv dist "$ARCHIVE_NAME"
-          tar -czvf "${ARCHIVE_NAME}.tar.gz" "$ARCHIVE_NAME"
-          echo "Created archive: ${ARCHIVE_NAME}.tar.gz"
-          ls -la
 
-      # GPG 署名 (Unix)
-      - name: GPG Sign Archive (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          ARCHIVE_BASE="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
-          ARCHIVE_FILE="${ARCHIVE_BASE}.${{ matrix.archive }}"
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import --passphrase "${{ env.GPG_PASSPHRASE }}"
-          gpg --batch --passphrase "${{ env.GPG_PASSPHRASE }}" -u "${{ env.GPG_KEY_ID }}" -o "${ARCHIVE_FILE}.sig" --detach-sig --armor "${ARCHIVE_FILE}"
-          echo "Created GPG signature: ${ARCHIVE_FILE}.sig"
-
-      - name: Import GPG key and sign artifacts
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
-          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: |
-          echo "Importing GPG keys..."
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-          echo "$GPG_PUBLIC_KEY" | gpg --batch --import
-
-          echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
-            --local-user "$GPG_KEY_ID" \
-            --output "dist/${{ matrix.bin }}.sig" \
-            --detach-sign "dist/${{ matrix.bin }}"
-
-          echo "Signature created: dist/${{ matrix.bin }}.sig"
-
-      - name: List Files Before Release (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          echo "Current directory contents:"
-          ls -la
-          echo "Files that should be uploaded:"
           if [[ "${{ matrix.archive }}" == "zip" ]]; then
-            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip"
-            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip.sig"
+            zip -r "${ARCHIVE_NAME}.zip" "$ARCHIVE_NAME"
           else
-            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.tar.gz"
-            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.tar.gz.sig"
+            tar -czvf "${ARCHIVE_NAME}.tar.gz" "$ARCHIVE_NAME"
           fi
 
-      - name: List Files Before Release (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
+      - name: Import GPG Keys
         run: |
-          echo "Current directory contents:"
-          Get-ChildItem -Force
-          echo "Files that should be uploaded:"
-          if ("${{ matrix.archive }}" -eq "zip") {
-            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip"
-            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip.sig"
-          } else {
-            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.tar.gz"
-            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.tar.gz.sig"
-          }
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          echo "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --batch --import
 
-      - name: update github release
-        id: create_release
+      - name: GPG Sign Archive
+        run: |
+          ARCHIVE_FILE="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.${{ matrix.archive }}"
+          echo "$GPG_PASSPHRASE" | \
+            gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+              --local-user "$GPG_KEY_ID" \
+              --output "${ARCHIVE_FILE}.sig" \
+              --detach-sign "$ARCHIVE_FILE"
+
+      - name: Upload release assets
         uses: softprops/action-gh-release@v1
         with:
-          draft: false
-          prerelease: false
           files: |
-            *.${{ matrix.archive }}
-            *.${{ matrix.archive }}.sig
-          fail_on_unmatched_files: false
+            twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.${{ matrix.archive }}
+            twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.${{ matrix.archive }}.sig
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Remove dist directory (Unix)
-        if: runner.os != 'Windows'
-        run: rm -rf "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
-
-      - name: Remove dist directory (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
+      - name: Cleanup
         run: |
-          $archiveBase = "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
-          if (Test-Path $archiveBase) {
-            Remove-Item -Recurse -Force $archiveBase
-          }
+          rm -rf twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}

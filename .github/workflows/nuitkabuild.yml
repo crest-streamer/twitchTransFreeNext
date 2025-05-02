@@ -8,6 +8,8 @@ on:
 env:
   GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
   GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+  GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+  GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
 
 jobs:
   build:
@@ -34,7 +36,7 @@ jobs:
             archive: tar.gz
             arch: _x86_64
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v3
@@ -97,31 +99,29 @@ jobs:
 
       # GPGのインポート処理
       - name: Import GPG Keys (Linux)
-        if: ${{ matrix.os == 'ubuntu-latest' && secrets.GPG_PRIVATE_KEY && secrets.GPG_PUBLIC_KEY && env.GPG_KEY_ID != '' }}
+        if: ${{ matrix.os == 'ubuntu-latest' && env.GPG_PRIVATE_KEY != '' && env.GPG_PUBLIC_KEY != '' }}
         shell: bash
         run: |
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
-          echo "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --batch --import
+          echo "${{ env.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          echo "${{ env.GPG_PUBLIC_KEY }}" | gpg --batch --import
 
       - name: Import GPG Keys (Windows)
-        if: ${{ matrix.os == 'windows-latest' && secrets.GPG_PRIVATE_KEY && secrets.GPG_PUBLIC_KEY && env.GPG_KEY_ID != '' }}
+        if: ${{ matrix.os == 'windows-latest' && env.GPG_PRIVATE_KEY != '' && env.GPG_PUBLIC_KEY != '' }}
         shell: bash
         run: |
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
-          echo "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --batch --import
+          echo "${{ env.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          echo "${{ env.GPG_PUBLIC_KEY }}" | gpg --batch --import
 
       - name: Import GPG Keys (macOS)
-        if: ${{ matrix.os == 'macos-latest' && secrets.GPG_PRIVATE_KEY && secrets.GPG_PUBLIC_KEY && env.GPG_KEY_ID != '' }}
+        if: ${{ matrix.os == 'macos-latest' && env.GPG_PRIVATE_KEY != '' && env.GPG_PUBLIC_KEY != '' }}
         shell: bash
         run: |
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
-          echo "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --batch --import
+          echo "${{ env.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          echo "${{ env.GPG_PUBLIC_KEY }}" | gpg --batch --import
 
       # GPG署名処理
       - name: GPG Sign Binary
-        env:
-          HAS_GPG_KEYS: ${{ secrets.GPG_PRIVATE_KEY != '' && secrets.GPG_PUBLIC_KEY != '' && secrets.GPG_PASSPHRASE != '' && secrets.GPG_KEY_ID != '' }}
-        if: env.HAS_GPG_KEYS == 'true'
+        if: ${{ env.GPG_PRIVATE_KEY != '' && env.GPG_PUBLIC_KEY != '' && env.GPG_PASSPHRASE != '' && env.GPG_KEY_ID != '' }}
         shell: bash
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"

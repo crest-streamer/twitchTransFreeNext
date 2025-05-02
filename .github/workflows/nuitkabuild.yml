@@ -45,6 +45,10 @@ jobs:
             curl -O https://curl.se/ca/cacert.pem
           fi
 
+      - name: Install build-essential (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt update && sudo apt install -y build-essential
+        
       - name: Build Icon for macOS
         if: matrix.os == 'macos-latest'
         run: |

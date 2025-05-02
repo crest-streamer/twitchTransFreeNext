@@ -139,5 +139,12 @@ jobs:
             twitchTransFN_${{ env.VERSION }}_${{ matrix.env }}.${{ matrix.archive }}
             dist/${{ matrix.bin }}.asc
 
-      - name: Clean up
+      - name: Clean up (Windows)
+        if: runner.os == 'Windows'
+        run: Remove-Item -Recurse -Force dist, *.tar.gz, *.zip, *.asc -ErrorAction SilentlyContinue
+
+      - name: Clean up (Unix)
+        if: runner.os != 'Windows'
         run: rm -rf dist *.tar.gz *.zip *.asc || true
+
+

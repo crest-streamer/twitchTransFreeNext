@@ -59,6 +59,33 @@ jobs:
       - name: Create dist directory
         run: mkdir -p dist
 
+build:
+  runs-on:  # Specify the runner environment (e.g., Windows, macOS, Linux)
+    ${{ matrix.os }}
+  strategy:
+    matrix:
+      os: [windows-latest, macos-latest, ubuntu-latest] # Define OS platforms
+      arch:  # Define architectures for macOS
+        - x86_64
+        - arm64
+      include:  # Combine OS and arch for macOS
+        - os: macos-latest
+          arch: x86_64
+        - os: macos-latest
+          arch: arm64
+  steps:
+    - uses: actions/checkout@v3  # Checkout your repository
+    - name: Set up Python  # Set up Python (if needed for Nuitka)
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'  # Or your preferred Python version
+    - name: Install Nuitka  # Install Nuitka
+      run: pip install nuitka
+    - name: Build  # Build the application with Nuitka
+      run: |
+        python -m nuitka --standalone --onefile --output-dir=dist --follow-imports --tempdir=. ${{ matrix.os == 'windows-latest' && '--windows-icon-from-ico=icon.ico' || '' }} ${{ matrix.os == 'macos-latest' && matrix.arch == 'x86_64' && 'macos-app-icon=icon.ico' || '' }} ${{ matrix.os == 'macos-latest' && matrix.arch == 'arm64' && 'macos-app-icon=icon.ico' || '' }} ${{ matrix.os == 'ubuntu-latest' && 'linux--icon=icon.ico' || '' }}  twitchTransFN.py
+      shell: bash # Ensure bash is used (important for macOS/Linux)
+      
       - name: run Build.py
         run: python build.py
 

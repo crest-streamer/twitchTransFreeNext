@@ -53,7 +53,7 @@ jobs:
       - name: Install macOS dependencies for Nuitka and build icon.icns
         if: startsWith(matrix.env, 'macos')
         run: |
-          brew install zstandard imagemagick
+          brew install zstd imagemagick
           python -m pip install nuitka
           mkdir icon.iconset
           sips -z 16 16     icon.png --out icon.iconset/icon_16x16.png

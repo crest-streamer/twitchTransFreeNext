@@ -143,14 +143,14 @@ jobs:
 
       - name: Archive Binary (zip)
         if: matrix.archive == 'zip'
-        run: powershell Compress-Archive -Path dist/* -DestinationPath twitchTransFN_${{ env.VERSION }}_${{ matrix.env }}.zip
+        run: powershell -Command "Compress-Archive -Path dist/${{ matrix.bin }} -DestinationPath twitchTransFN_${{ env.VERSION }}_${{ matrix.env }}.zip"
 
       - name: Archive Binary (tar.gz)
         if: matrix.archive == 'tar.gz'
         run: |
           ARCHIVE_NAME="twitchTransFN_${{ env.VERSION }}_${{ matrix.env }}"
           mv dist "$ARCHIVE_NAME"
-          tar -czvf "$ARCHIVE_NAME.tar.gz" "$ARCHIVE_NAME"
+          tar -czvf "$ARCHIVE_NAME.tar.gz" "./dist/$ARCHIVE_NAME"
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
@@ -160,11 +160,11 @@ jobs:
             dist/${{ matrix.bin }}.asc
 
       - name: Clean up (Windows)
-        if: matrix.os == 'Windows'
+        if: matrix.os == 'windows-latest'
         run: Remove-Item -Recurse -Force dist, *.tar.gz, *.zip, *.asc -ErrorAction SilentlyContinue
 
       - name: Clean up (Unix)
-        if: matrix.os != 'Windows'
+        if: matrix.os != 'windows-latest'
         run: rm -rf dist *.tar.gz *.zip *.asc || true
 
 

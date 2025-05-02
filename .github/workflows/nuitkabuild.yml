@@ -3,7 +3,7 @@ name: Build Binaries and Create Release
 on:
   push:
     tags:
-      - "vc*"
+      - "cv*"
 
 env:
   GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}

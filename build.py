@@ -67,7 +67,6 @@ def build_for_os(os_name, arch, add_data_option):
             "--assume-yes-for-downloads",
             "--windows-icon-from-ico=icon.ico",
             add_data_option,
-            "--tempdir=."
         ] + include_modules + ["twitchTransFN.py"]
     elif os_name == "macos":
         if arch == "arm64":
@@ -78,7 +77,6 @@ def build_for_os(os_name, arch, add_data_option):
                 "--output-dir=dist",
                 "--macos-app-icon=icon.icns",
                 add_data_option,
-                "--tempdir=."
             ] + include_modules + ["twitchTransFN.py"]
         elif arch == "x86_64":
             command = [
@@ -89,7 +87,6 @@ def build_for_os(os_name, arch, add_data_option):
                 "--macos-app-icon=icon.icns",
                 "--macos-create-app-bundle",
                 add_data_option,
-                "--tempdir=."
             ] + include_modules + ["twitchTransFN.py"]
     elif os_name == "linux":
         command = [
@@ -99,7 +96,6 @@ def build_for_os(os_name, arch, add_data_option):
             "--output-dir=dist",
             "--linux-icon=icon.ico",
             add_data_option,
-            "--tempdir=."
         ] + include_modules + ["twitchTransFN.py"]
     
     subprocess.run(command, check=True)

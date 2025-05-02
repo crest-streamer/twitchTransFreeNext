@@ -31,35 +31,22 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'  # Nuitka対応のPythonバージョン
-
-      - name: Install dependencies for Nuitka (Linux/Mac)
-        if: matrix.os != 'windows-latest'
-        run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            sudo apt-get update
-            sudo apt install -y ccache
-            sudo apt-get install -y patchelf
-          else
-            brew install ccache
-          fi
+          python-version: '3.11'  # Nuitka対応のPythonバージョン
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install nuitka
           pip install -r requirements.txt
+          echo "Dependencies installed successfully"
 
       - name: Download cacert.pem
         run: |
           if [ ! -f cacert.pem ]; then
             curl -O https://curl.se/ca/cacert.pem
           fi
+          echo "cacert.pem download completed"
 
-      - name: Install build-essential (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt update && sudo apt install -y build-essential
-        
       - name: Build Icon for macOS
         if: matrix.os == 'macos-latest'
         run: |
@@ -80,10 +67,12 @@ jobs:
           cp icon.png icon.iconset/icon_512x512@2x.png
           iconutil -c icns icon.iconset -o icon.icns
           rm -rf icon.iconset
+          echo "macOS icon built successfully"
 
       - name: Build for ${{ matrix.target }}
         run: |
           python build.py ${{ matrix.target }}
+          echo "Build completed for ${{ matrix.target }}"
         env:
           VERSION: ${{ github.ref_name }}  # バージョン情報を環境変数に設定
 
@@ -121,7 +110,7 @@ jobs:
           echo "GPG keys are blank. Skipping GPG signing."
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # v3 から v4 にアップデート
         with:
           name: twitchtransfn-${{ matrix.target }}-${{ matrix.arch || 'x86_64' }}
           path: |
@@ -146,3 +135,4 @@ jobs:
         id: get_version
         run: |
           echo "VERSION=$(python -c 'from build import get_version; print(get_version())')" >> $GITHUB_ENV
+          echo "Version set to: ${{ env.VERSION }}"

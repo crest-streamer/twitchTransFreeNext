@@ -116,16 +116,29 @@ jobs:
           echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
           echo "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --batch --import
 
-      - name: GPG Sign Archive (macOS)
-        if: ${{ matrix.os == 'macos-latest' && secrets.GPG_PRIVATE_KEY && secrets.GPG_PUBLIC_KEY && env.GPG_KEY_ID != '' && env.GPG_PASSPHRASE != '' }}
+      - name: GPG Sign Binary
+        env:
+          HAS_GPG_KEYS: ${{ secrets.GPG_PRIVATE_KEY != '' && secrets.GPG_PUBLIC_KEY != '' && secrets.GPG_PASSPHRASE != '' && secrets.GPG_KEY_ID != '' }}
+        if: env.HAS_GPG_KEYS == 'true'
         shell: bash
         run: |
-          ARCHIVE_FILE="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.${{ matrix.archive }}"
+          ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
+          BIN_PATH="$ARCHIVE_NAME/${{ matrix.bin }}"
           echo "$GPG_PASSPHRASE" | \
             gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
               --local-user "$GPG_KEY_ID" \
-              --output "${ARCHIVE_FILE}.sig" \
-              --detach-sign "$ARCHIVE_FILE"
+              --output "$BIN_PATH.sig" \
+              --detach-sign "$BIN_PATH"
+
+      - name: Archive binaries with .sig
+        run: |
+          ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            zip -r "${ARCHIVE_NAME}.zip" "$ARCHIVE_NAME"
+          else
+            tar -czvf "${ARCHIVE_NAME}.tar.gz" "$ARCHIVE_NAME"
+          fi
+
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v1

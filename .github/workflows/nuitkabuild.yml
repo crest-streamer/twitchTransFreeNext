@@ -126,6 +126,7 @@ jobs:
           nuitka `
             --standalone `
             --onefile `
+            --assume-yes-for-downloads `
             --follow-imports `
             --output-dir=dist `
             --disable-cache=ccache `

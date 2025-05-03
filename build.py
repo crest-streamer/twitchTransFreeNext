@@ -5,13 +5,11 @@ import shutil
 
 def get_version():
     try:
-        # UTF-8エンコーディングでファイルを読み込む
         with open("twitchTransFN.py", "r", encoding="utf-8") as f:
             for line in f:
                 if line.startswith("version ="):
                     return line.split("'")[1]
     except UnicodeDecodeError:
-        # UTF-8で読み込めない場合は、他のエンコーディングを試す
         try:
             with open("twitchTransFN.py", "r", encoding="shift-jis") as f:
                 for line in f:
@@ -22,7 +20,6 @@ def get_version():
     except Exception as e:
         print(f"Error reading file: {e}")
     
-    # バージョン情報が取得できない場合は、環境変数から取得を試みる
     if "VERSION" in os.environ:
         return os.environ["VERSION"]
     
@@ -31,38 +28,33 @@ def get_version():
 def build_for_os(os_name, arch, add_data_option):
     version = get_version()
     print(f"Building for {os_name} ({arch})...")
-    
-    # distフォルダを削除
+
     if os.path.exists("dist"):
         shutil.rmtree("dist")
     
-    # 必要なモジュールを明示的に指定
     include_modules = [
-        "--include-package=async_google_trans_new",  # AsyncTranslatorとconstant用
-        "--include-package=gtts",                    # gTTS用
-        "--include-package=playsound",               # playsound用（macOSでは代替手段あり）
-        "--include-package=deepl",                   # deepl用
-        "--include-package=twitchio",                # twitchio用
-        "--include-package=emoji",                   # emoji用
-        "--include-module=tts",                      # カスタムモジュール
-        "--include-module=sound",                    # カスタムモジュール
-        "--include-module=database_controller",      # カスタムモジュール
+        "--include-package=async_google_trans_new",
+        "--include-package=gtts",
+        "--include-package=playsound",
+        "--include-package=deepl",
+        "--include-package=twitchio",
+        "--include-package=emoji",
+        "--include-module=tts",
+        "--include-module=sound",
+        "--include-module=database_controller",
     ]
 
-    # Windowsの場合、pywin32を追加
     if os_name == "windows":
         include_modules.append("--include-module=win32api")
         include_modules.append("--include-module=win32con")
         include_modules.append("--include-module=win32com.client")
         include_modules.append("--include-module=pythoncom")
 
-    # macOSの場合、AppKitを試す（必要に応じて）
     if os_name == "macos":
         os.environ["CC"] = "/usr/bin/clang"
         os.environ["CXX"] = "/usr/bin/clang++"
         include_modules.append("--include-module=AppKit")
 
-    # コマンド構築
     if os_name == "windows":
         command = [
             sys.executable,
@@ -117,11 +109,10 @@ def build_for_os(os_name, arch, add_data_option):
             "--linux-icon=icon.ico",
             add_data_option,
         ] + include_modules + ["twitchTransFN.py"]
-    
+
     print("Running command:", " ".join(command))
     subprocess.run(command, check=True)
 
-    # ファイル名の変更
     if os_name == "windows":
         os.rename("dist/twitchTransFN.exe", f"dist/twitchTransFN_{version}_win.exe")
     elif os_name == "linux":
@@ -132,8 +123,6 @@ def build_for_os(os_name, arch, add_data_option):
         elif arch == "x86_64":
             os.rename("dist/twitchTransFN", f"dist/twitchTransFN_{version}_macos_Intel.app")
 
-        # 圧縮処理
-        # 成果物と config.py をアーカイブ
     archive_name = None
     output_name = None
 
@@ -159,8 +148,18 @@ def build_for_os(os_name, arch, add_data_option):
 
     print(f"Build for {os_name} ({arch}) completed.")
 
+    # 成果物と config.py をリリースディレクトリに移動
+    release_dir = "release"
+    if not os.path.exists(release_dir):
+        os.makedirs(release_dir)
+
+    shutil.move(f"dist/{output_name}", f"{release_dir}/{output_name}")
+    shutil.move(f"dist/config.py", f"{release_dir}/config.py")
+
+    if archive_name:
+        shutil.move(f"dist/{archive_name}", f"{release_dir}/{archive_name}")
+
 def main(target_os):
-    # cacert.pemが存在することを確認
     if not os.path.exists("cacert.pem"):
         print("Error: cacert.pem not found. Downloading...")
         try:
@@ -171,11 +170,9 @@ def main(target_os):
             print(f"Failed to download cacert.pem: {e}")
             return
 
-    # distフォルダの準備
     if not os.path.exists("dist"):
         os.makedirs("dist")
 
-    # 各OS向けにビルド
     if target_os == "windows":
         build_for_os("windows", "", "--include-data-file=cacert.pem=cacert.pem")
     elif target_os == "linux":

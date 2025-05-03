@@ -92,12 +92,13 @@ jobs:
         env:
           VERSION: ${{ github.ref_name }}
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - name: update github release
+        id: create_release
+        uses: softprops/action-gh-release@v1
         with:
-          name: twitchtransfn-${{ matrix.target }}-${{ matrix.arch || 'x86_64' }}
-          path: |
-            release/*
+          draft: false
+          prerelease: false
+          files: ${{'twitchTransFN_'}}${{ matrix.env }}${{ matrix.arch }}.${{ matrix.archive }}
 
       - name: Create Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')

@@ -11,16 +11,24 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
         include:
-          - os: windows-latest
-            target: windows
-          - os: macos-latest
-            target: macos_M1
-            arch: arm64
-          - os: macos-latest
-            target: macos_Intel
-            arch: x86_64
-          - os: ubuntu-latest
-            target: linux
+          - env: linux
+            os: ubuntu-latest
+            bin: twitchTransFN.bin
+            archive: tar.gz
+          - env: windows
+            os: windows-latest
+            bin: twitchTransFN.exe
+            archive: zip
+          - env: macos_M1
+            os: macos-latest
+            bin: twitchTransFN.app
+            archive: tar.gz
+            arch: _arm64
+          - env: macos_Intel
+            os: macos-latest
+            bin: twitchTransFN.app
+            archive: tar.gz
+            arch: _x86_64
 
     runs-on: ${{ matrix.os }}
 

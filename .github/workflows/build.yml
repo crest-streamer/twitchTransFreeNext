@@ -107,7 +107,7 @@ jobs:
         shell: bash
 
       - name: build
-        run: python build.py ${{ matrix.env }}
+        run: python build_py.py ${{ matrix.env }}
 
       - name: archive with zip
         if: ${{ matrix.archive == 'zip' }}

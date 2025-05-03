@@ -16,11 +16,13 @@ jobs:
             bin: twitchTransFN.bin
             archive: tar.gz
             target: linux
+            arch: ""
           - env: windows
             os: windows-latest
             bin: twitchTransFN_win.exe
             archive: zip
             target: win
+            arch: ""
           - env: macos_M1
             os: macos-latest
             bin: twitchTransFN.app
@@ -56,14 +58,17 @@ jobs:
         run: pip install pyobjc
 
       - name: Download cacert.pem
-        run: |
-          curl -o cacert.pem https://curl.se/ca/cacert.pem
-      
+        run: curl -o cacert.pem https://curl.se/ca/cacert.pem
+
       - name: Install build tools (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           brew update
           brew install scons make
+
+      - name: Install patchelf (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y patchelf
 
       - name: Build Icon for macOS
         if: matrix.os == 'macos-latest'
@@ -86,21 +91,24 @@ jobs:
           iconutil -c icns icon.iconset -o icon.icns
           rm -rf icon.iconset
 
-      - name: Build binary
+      - name: Get Version from Python file
+        id: get_version
         run: |
-          python build.py ${{ matrix.env }}
+          VERSION=$(grep "version =" twitchTransFN.py | awk -F"'" '{print $2}')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build binary
+        run: python build.py ${{ matrix.env }}
         env:
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${{ steps.get_version.outputs.version }}
 
-      - name: update github release
-        id: create_release
-        uses: softprops/action-gh-release@v1
+      - name: Upload Release Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          draft: false
-          prerelease: false
-          files: ${{'twitchTransFN_'}}${{ matrix.env }}${{ matrix.arch }}.${{ matrix.archive }}
+          name: release-artifacts-${{ matrix.env }}${{ matrix.arch }}
+          path: release/*
 
-      - name: Create Release
+      - name: Create GitHub Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:

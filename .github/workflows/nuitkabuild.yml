@@ -9,7 +9,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        env: [linux, windows, macos_M1, macos_Intel]
         include:
           - env: linux
             os: ubuntu-latest

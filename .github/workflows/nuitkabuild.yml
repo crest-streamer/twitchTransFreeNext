@@ -3,7 +3,7 @@ name: Build TwitchTransFN
 on:
   push:
     tags:
-      - "cv*"
+      - "vc*"
 
 jobs:
   build:

@@ -9,7 +9,7 @@ jobs:
   build_matrix:
     strategy:
       matrix:
-        env: [linux, windows, macos]
+        env: [linux, windows, macos_M1, macos_Intel]
         include:
           - env: linux
             os: ubuntu-latest
@@ -19,13 +19,18 @@ jobs:
             os: windows-latest
             bin: twitchTransFN.exe
             archive: zip
-          - env: macos
+          - env: macos_M1
             os: macos-latest
             bin: twitchTransFN.command
             archive: tar.gz
-            arch: _intel
+            arch: _arm64
+          - env: macos_Intel
+            os: macos-latest
+            bin: twitchTransFN.command
+            archive: tar.gz
+            arch: _x86_64
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -35,27 +40,131 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: upgrade pip and install PyInstaller
-        run: python -m pip install --upgrade pip setuptools wheel pyinstaller
+      - name: upgrade pip and install dependencies
+        run: python -m pip install --upgrade pip setuptools wheel
+
+      # Windowsの場合のみPyInstallerのブートローダーを再ビルド
+      - name: Clone PyInstaller and Rebuild Bootloader for Windows
+        if: matrix.env == 'windows'
+        run: |
+          git clone https://github.com/pyinstaller/pyinstaller
+          cd pyinstaller/bootloader
+          python ./waf distclean all
+          cd ..
+          pip install .
+
+      # LinuxとmacOSの場合にPyInstallerをインストール
+      - name: Install PyInstaller for Linux and MacOS
+        if: matrix.env != 'windows'
+        run: |
+          python -m pip install pyinstaller
+          if [[ "${{ matrix.env }}" == "macos_M1" ]]; then
+            arch="arm64"
+          elif [[ "${{ matrix.env }}" == "macos_Intel" ]]; then
+            arch="x86_64"
+          else
+            arch=""
+          fi
+          echo "arch=$arch" >> $GITHUB_ENV
 
       - name: install requirements
         run: python -m pip install -r requirements.txt
 
-      - name: build
-        run: python build.py
+      - name: Download cacert.pem
+        run: |
+          curl -o cacert.pem https://curl.se/ca/cacert.pem
+          
+      - name: Create dist directory
+        run: mkdir -p dist
 
-      - name: move config.py
-        run: mv config.py dist/
+      - name: Get Version (Unix)
+        id: get_version_unix
+        if: runner.os != 'Windows'
+        run: |
+          VERSION=$(grep "version =" twitchTransFN.py | awk -F "'" '{print $2}')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version detected: $VERSION"
+
+      - name: Get Version (Windows)
+        id: get_version_windows
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $content = Get-Content -Path twitchTransFN.py
+          $versionLine = $content | Where-Object { $_ -match "version = '(.+)'" }
+          $version = $matches[1]
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "Version detected: $version"
+
+      - name: Set Version Variable
+        id: get_version
+        run: |
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            echo "version=${{ steps.get_version_windows.outputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ steps.get_version_unix.outputs.version }}" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: build
+        run: python build.py ${{ matrix.env }}
 
       - name: archive with zip
         if: ${{ matrix.archive == 'zip' }}
-        run: powershell Compress-Archive -Path dist/* -DestinationPath ${{'twitchTransFN_'}}${{ matrix.env }}.zip
+        run: powershell Compress-Archive -Path dist/* -DestinationPath twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip
 
       - name: archive with tar.gz
         if: ${{ matrix.archive == 'tar.gz' }}
         run: |
-          mv dist ${{'twitchTransFN_'}}${{ matrix.env }}
-          tar acvf ${{'twitchTransFN_'}}${{ matrix.env }}${{ matrix.arch }}.tar.gz ${{'twitchTransFN_'}}${{ matrix.env }}
+          ARCHIVE_NAME="twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}"
+          mv dist "$ARCHIVE_NAME"
+          tar -czvf "${ARCHIVE_NAME}.tar.gz" "$ARCHIVE_NAME"
+          echo "Created archive: ${ARCHIVE_NAME}.tar.gz"
+          ls -la
+
+      - name: Debug Archive Info (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          echo "Matrix env: ${{ matrix.env }}"
+          echo "Matrix arch: ${{ matrix.arch }}"
+          echo "Version: ${{ steps.get_version.outputs.version }}"
+          echo "Archive type: ${{ matrix.archive }}"
+          ls -la
+
+      - name: Debug Archive Info (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          echo "Matrix env: ${{ matrix.env }}"
+          echo "Matrix arch: ${{ matrix.arch }}"
+          echo "Version: ${{ steps.get_version.outputs.version }}"
+          echo "Archive type: ${{ matrix.archive }}"
+          Get-ChildItem -Force
+
+      - name: List Files Before Release (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          echo "Current directory contents:"
+          ls -la
+          echo "Files that should be uploaded:"
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip"
+          else
+            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.tar.gz"
+          fi
+
+      - name: List Files Before Release (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          echo "Current directory contents:"
+          Get-ChildItem -Force
+          echo "Files that should be uploaded:"
+          if ("${{ matrix.archive }}" -eq "zip") {
+            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip"
+          } else {
+            echo "twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.tar.gz"
+          }
 
       - name: update github release
         id: create_release
@@ -63,4 +172,17 @@ jobs:
         with:
           draft: false
           prerelease: false
-          files: ${{'twitchTransFN_'}}${{ matrix.env }}${{ matrix.arch }}.${{ matrix.archive }}
+          files: "*.${{ matrix.archive }}"
+          fail_on_unmatched_files: false
+
+      - name: Remove dist directory (Unix)
+        if: runner.os != 'Windows'
+        run: rm -rf dist
+
+      - name: Remove dist directory (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          if (Test-Path dist) {
+            Remove-Item -Recurse -Force dist
+          }

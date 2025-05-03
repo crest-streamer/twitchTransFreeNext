@@ -94,8 +94,22 @@ jobs:
           GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      - name: Sign Artifacts with GPG
-        if: env.GPG_PRIVATE_KEY != '' && env.GPG_KEY_ID != '' && env.GPG_PASSPHRASE != ''  # キーがブランクでない場合のみ実行
+      - name: Sign Artifacts with GPG (Windows)
+        if: env.GPG_PRIVATE_KEY != '' && env.GPG_KEY_ID != '' && env.GPG_PASSPHRASE != ''  && matrix.os == 'windows-latest' # キーがブランクでない場合のみ実行
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path dist | ForEach-Object {
+              $file = $_.FullName
+              Write-Host "Signing $file"
+              gpg --batch --yes --pinentry-mode loopback --passphrase "$env:GPG_PASSPHRASE" --output "$file.sig" --detach-sign "$file"
+          }
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Sign Artifacts with GPG (MacOS&Linux)
+        if: env.GPG_PRIVATE_KEY != '' && env.GPG_KEY_ID != '' && env.GPG_PASSPHRASE != ''  && matrix.os != 'windows-latest' # キーがブランクでない場合のみ実行
         run: |
           for file in dist/*; do
             if [ -f "$file" ]; then
@@ -107,7 +121,7 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-
+          
       - name: Skip GPG Signing (if keys are blank)
         if: env.GPG_PRIVATE_KEY == '' || env.GPG_KEY_ID == '' || env.GPG_PASSPHRASE == ''
         run: |

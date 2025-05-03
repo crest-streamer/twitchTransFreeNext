@@ -153,7 +153,7 @@ def build_for_os(os_name, arch, add_data_option):
     if not os.path.exists(release_dir):
         os.makedirs(release_dir)
 
-    shutil.move(f"dist/{output_name}", f"{release_dir}/{output_name}")
+    #shutil.move(f"dist/{output_name}", f"{release_dir}/{output_name}")
     shutil.move(f"dist/config.py", f"{release_dir}/config.py")
 
     if archive_name:

@@ -133,20 +133,30 @@ def build_for_os(os_name, arch, add_data_option):
             os.rename("dist/twitchTransFN", f"dist/twitchTransFN_{version}_macos_Intel.app")
 
         # 圧縮処理
-    output_filename = None
+        # 成果物と config.py をアーカイブ
+    archive_name = None
+    output_name = None
+
     if os_name == "windows":
-        output_filename = f"twitchTransFN_{version}_win.exe"
-        shutil.make_archive(f"dist/twitchTransFN_{version}_win", "zip", root_dir="dist", base_dir=output_filename)
+        output_name = f"twitchTransFN_{version}_win.exe"
+        archive_name = f"twitchTransFN_{version}_win.zip"
+        shutil.copy("config.py", "dist/config.py")
+        shutil.make_archive(archive_name.replace(".zip", ""), 'zip', root_dir="dist", base_dir=".")
     elif os_name == "linux":
-        output_filename = f"twitchTransFN_{version}_linux"
-        subprocess.run(["tar", "-czvf", f"dist/twitchTransFN_{version}_linux.tar.gz", "-C", "dist", output_filename], check=True)
+        output_name = f"twitchTransFN_{version}_linux"
+        archive_name = f"twitchTransFN_{version}_linux.tar.gz"
+        shutil.copy("config.py", "dist/config.py")
+        subprocess.run(["tar", "-czvf", f"dist/{archive_name}", "-C", "dist", output_name, "config.py"], check=True)
     elif os_name == "macos":
         if arch == "arm64":
-            output_filename = f"twitchTransFN_{version}_macos_M1.app"
-            subprocess.run(["tar", "-czvf", f"dist/twitchTransFN_{version}_macos_M1.tar.gz", "-C", "dist", output_filename], check=True)
+            output_name = f"twitchTransFN_{version}_macos_M1.app"
+            archive_name = f"twitchTransFN_{version}_macos_M1.tar.gz"
         elif arch == "x86_64":
-            output_filename = f"twitchTransFN_{version}_macos_Intel.app"
-            subprocess.run(["tar", "-czvf", f"dist/twitchTransFN_{version}_macos_Intel.tar.gz", "-C", "dist", output_filename], check=True)
+            output_name = f"twitchTransFN_{version}_macos_Intel.app"
+            archive_name = f"twitchTransFN_{version}_macos_Intel.tar.gz"
+        shutil.copy("config.py", "dist/config.py")
+        subprocess.run(["tar", "-czvf", f"dist/{archive_name}", "-C", "dist", output_name, "config.py"], check=True)
+
     print(f"Build for {os_name} ({arch}) completed.")
 
 def main(target_os):

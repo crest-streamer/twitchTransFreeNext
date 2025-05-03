@@ -107,7 +107,7 @@ jobs:
 
       - name: archive with zip
         if: ${{ matrix.archive == 'zip' }}
-        run: powershell Compress-Archive -Path dist/twitchTransFN.exe config.py -DestinationPath twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip
+        run: powershell Compress-Archive -Path "dist/twitchTransFN.exe", "config.py" -DestinationPath twitchTransFN_${{ steps.get_version.outputs.version }}_${{ matrix.env }}.zip
 
       - name: archive with tar.gz
         if: ${{ matrix.archive == 'tar.gz' }}

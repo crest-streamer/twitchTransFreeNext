@@ -103,7 +103,7 @@ jobs:
           if [ "${{ matrix.archive }}" = "zip" ]; then
             7z a "release/${{ matrix.bin }}.zip" "./dist/${{ matrix.bin }}"
           else
-            tar -czvf "release/${{ matrix.bin }}.tar.gz" -C dist "${{ matrix.bin }}"
+            tar -czvf "release/${{ matrix.bin }}_${{ matrix.env }}.tar.gz" -C dist "${{ matrix.bin }}"
           fi
 
       - name: Upload artifacts

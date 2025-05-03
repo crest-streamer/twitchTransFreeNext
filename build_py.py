@@ -42,7 +42,7 @@ def build_for_os(os_name, arch, add_data_option):
             "--output-dir=dist",
             "--assume-yes-for-downloads",
             "--disable-ccache",
-            "--follow-import",
+            "--follow-imports",
             "--windows-icon-from-ico=icon.ico",
             "--include-data-file=cacert.pem=cacert.pem",
             "twitchTransFN.py",

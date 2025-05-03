@@ -60,7 +60,7 @@ def build_for_os(os_name, arch, add_data_option):
     if os_name == "macos":
         os.environ["CC"] = "/usr/bin/clang"
         os.environ["CXX"] = "/usr/bin/clang++"
-        #include_modules.append("--include-module=AppKit")
+        include_modules.append("--include-module=AppKit")
 
     # コマンド構築
     if os_name == "windows":
@@ -82,6 +82,7 @@ def build_for_os(os_name, arch, add_data_option):
                 "nuitka",
                 "--standalone",
                 "--onefile",
+                "--macos-create-app-bundle",
                 "--nofollow-import-to=config",
                 "--output-dir=dist",
                 "--disable-ccache",
@@ -93,6 +94,7 @@ def build_for_os(os_name, arch, add_data_option):
                 "nuitka",
                 "--standalone",
                 "--onefile",
+                "--macos-create-app-bundle",
                 "--nofollow-import-to=config",
                 "--output-dir=dist",
                 "--disable-ccache",

@@ -106,33 +106,6 @@ jobs:
             tar -czvf "release/${{ matrix.bin }}.tar.gz" -C dist "${{ matrix.bin }}"
           fi
 
-      - name: Set up GPG
-        if: env.GPG_PRIVATE_KEY != '' && env.GPG_KEY_ID != '' && env.GPG_PASSPHRASE != ''
-        run: |
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --import --batch --yes
-          echo "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --import --batch --yes
-          echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
-          echo "pinentry-mode loopback" > ~/.gnupg/gpg.conf
-          gpg-agent --daemon || true
-          sleep 2
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-
-      - name: Sign binary with GPG
-        if: env.GPG_PRIVATE_KEY != '' && env.GPG_KEY_ID != '' && env.GPG_PASSPHRASE != ''
-        run: |
-          echo "${{ secrets.GPG_PASSPHRASE }}" | \
-          gpg --pinentry-mode loopback --passphrase-fd 0 \
-              --sign --armor --output "release/${{ matrix.bin }}.asc" \
-              --detach-sign --default-key "${{ secrets.GPG_KEY_ID }}" \
-              "dist/${{ matrix.bin }}"
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

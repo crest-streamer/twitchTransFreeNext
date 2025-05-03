@@ -33,6 +33,7 @@ def build_for_os(os_name, arch, add_data_option):
     if os.path.exists("dist"):
         shutil.rmtree("dist")
     
+    if os_name == "windows":
         command = [
             sys.executable, "-m", "nuitka",
             "--standalone", "--onefile",
@@ -44,7 +45,8 @@ def build_for_os(os_name, arch, add_data_option):
             "--follow-import",
             "--windows-icon-from-ico=icon.ico",
             "--include-data-file=cacert.pem=cacert.pem",
-        ] + include_modules + ["twitchTransFN.py"]
+            "twitchTransFN.py",
+        ]
     else:
         command = [
             "pyinstaller",

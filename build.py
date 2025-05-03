@@ -83,7 +83,7 @@ def build_for_os(os_name, arch, add_data_option):
                 "nuitka",
                 "--standalone",
                 "--onefile",
-                "--output-filename=twitchTransFN.app",
+                "--output-filename=twitchTransFN",
                 "--macos-create-app-bundle",
                 "--nofollow-import-to=config",
                 "--output-dir=dist",
@@ -96,7 +96,7 @@ def build_for_os(os_name, arch, add_data_option):
                 "nuitka",
                 "--standalone",
                 "--onefile",
-                "--output-filename=twitchTransFN.app",
+                "--output-filename=twitchTransFN",
                 "--macos-create-app-bundle",
                 "--nofollow-import-to=config",
                 "--output-dir=dist",
@@ -128,9 +128,9 @@ def build_for_os(os_name, arch, add_data_option):
         os.rename("dist/twitchTransFN.bin", f"dist/twitchTransFN_{version}_linux")
     elif os_name == "macos":
         if arch == "arm64":
-            os.rename("dist/twitchTransFN.app", f"dist/twitchTransFN_{version}_macos_M1.app")
+            os.rename("dist/twitchTransFN", f"dist/twitchTransFN_{version}_macos_M1.app")
         elif arch == "x86_64":
-            os.rename("dist/twitchTransFN.app", f"dist/twitchTransFN_{version}_macos_Intel.app")
+            os.rename("dist/twitchTransFN", f"dist/twitchTransFN_{version}_macos_Intel.app")
 
     print(f"Build for {os_name} ({arch}) completed.")
 

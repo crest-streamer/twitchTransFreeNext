@@ -55,11 +55,15 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: pip install pyobjc
 
+      - name: Download cacert.pem
+        run: |
+          curl -o cacert.pem https://curl.se/ca/cacert.pem
+      
       - name: Install build tools (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           brew update
-          brew install scons make gcc
+          brew install scons make
 
       - name: Build Icon for macOS
         if: matrix.os == 'macos-latest'
@@ -84,7 +88,7 @@ jobs:
 
       - name: Build binary
         run: |
-          python build.py ${{ matrix.target }}
+          python build.py ${{ matrix.env }}
         env:
           VERSION: ${{ github.ref_name }}
 

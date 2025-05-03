@@ -37,14 +37,47 @@ def build_for_os(os_name, arch, add_data_option):
     if os.path.exists("dist"):
         shutil.rmtree("dist")
     
+    include_modules = [
+        "--include-package=async_google_trans_new",
+        "--include-package=gtts",
+        "--include-package=playsound",
+        "--include-package=deepl",
+        "--include-package=twitchio",
+        "--include-package=emoji",
+        "--include-module=tts",
+        "--include-module=sound",
+        "--include-module=database_controller",
+    ]
+
+    if os_name == "windows":
+        include_modules.append("--include-module=win32api")
+        include_modules.append("--include-module=win32con")
+        include_modules.append("--include-module=win32com.client")
+        include_modules.append("--include-module=pythoncom")
+    
     # build
-    command = [
-        "pyinstaller",
-        "--onefile",
-        "--icon=icon.ico",  # アイコン設定を追加
-        "--runtime-tmpdir=.", # runtime-tmpdirを追加
-        add_data_option,
-        "twitchTransFN.py"
+    if os_name == "windows":
+        command = [
+            sys.executable,
+            "-m", "nuitka",
+            "--standalone",
+            "--onefile",
+            "--output-filename=twitchTransFN.exe",
+            "--nofollow-import-to=config",
+            "--output-dir=dist",
+            "--assume-yes-for-downloads",
+            "--disable-ccache",
+            "--windows-icon-from-ico=icon.ico",
+            add_data_option,
+        ] + include_modules + ["twitchTransFN.py"]
+    else:
+        command = [
+            "pyinstaller",
+            "--onefile",
+            "--icon=icon.ico",  # アイコン設定を追加
+            "--runtime-tmpdir=.", # runtime-tmpdirを追加
+            add_data_option,
+            "twitchTransFN.py"
     ]
     subprocess.run(command, check=True)
 

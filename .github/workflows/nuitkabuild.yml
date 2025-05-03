@@ -118,8 +118,9 @@ jobs:
       - name: Upload Release Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-artifacts-${{ matrix.env }}${{ matrix.arch }}
-          path: release/*
+          files: |
+            release/twitchTransFN_*.zip
+            release/twitchTransFN_*.tar.gz
 
       - name: Create GitHub Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')

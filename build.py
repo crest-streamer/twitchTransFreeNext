@@ -69,6 +69,7 @@ def build_for_os(os_name, arch, add_data_option):
             "-m", "nuitka",
             "--standalone",
             "--onefile",
+            "--nofollow-import-to=config",
             "--output-dir=dist",
             "--assume-yes-for-downloads",
             "--disable-ccache",
@@ -81,6 +82,7 @@ def build_for_os(os_name, arch, add_data_option):
                 "nuitka",
                 "--standalone",
                 "--onefile",
+                "--nofollow-import-to=config",
                 "--output-dir=dist",
                 "--disable-ccache",
                 "--macos-app-icon=icon.icns",
@@ -91,6 +93,7 @@ def build_for_os(os_name, arch, add_data_option):
                 "nuitka",
                 "--standalone",
                 "--onefile",
+                "--nofollow-import-to=config",
                 "--output-dir=dist",
                 "--disable-ccache",
                 "--macos-app-icon=icon.icns",
@@ -102,6 +105,7 @@ def build_for_os(os_name, arch, add_data_option):
             "nuitka",
             "--standalone",
             "--onefile",
+            "--nofollow-import-to=config",
             "--output-dir=dist",
             "--disable-ccache",
             "--linux-icon=icon.ico",
@@ -115,7 +119,7 @@ def build_for_os(os_name, arch, add_data_option):
     if os_name == "windows":
         os.rename("dist/twitchTransFN.exe", f"dist/twitchTransFN_{version}_win.exe")
     elif os_name == "linux":
-        os.rename("dist/twitchTransFN.bin", f"dist/twitchTransFN_{version}_linux.bin")
+        os.rename("dist/twitchTransFN.bin", f"dist/twitchTransFN_{version}_linux")
     elif os_name == "macos":
         if arch == "arm64":
             os.rename("dist/twitchTransFN.app", f"dist/twitchTransFN_{version}_macos_M1.app")

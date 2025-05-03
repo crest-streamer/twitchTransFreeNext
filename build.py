@@ -132,6 +132,21 @@ def build_for_os(os_name, arch, add_data_option):
         elif arch == "x86_64":
             os.rename("dist/twitchTransFN", f"dist/twitchTransFN_{version}_macos_Intel.app")
 
+        # 圧縮処理
+    output_filename = None
+    if os_name == "windows":
+        output_filename = f"twitchTransFN_{version}_win.exe"
+        shutil.make_archive(f"dist/twitchTransFN_{version}_win", "zip", root_dir="dist", base_dir=output_filename)
+    elif os_name == "linux":
+        output_filename = f"twitchTransFN_{version}_linux"
+        subprocess.run(["tar", "-czvf", f"dist/twitchTransFN_{version}_linux.tar.gz", "-C", "dist", output_filename], check=True)
+    elif os_name == "macos":
+        if arch == "arm64":
+            output_filename = f"twitchTransFN_{version}_macos_M1.app"
+            subprocess.run(["tar", "-czvf", f"dist/twitchTransFN_{version}_macos_M1.tar.gz", "-C", "dist", output_filename], check=True)
+        elif arch == "x86_64":
+            output_filename = f"twitchTransFN_{version}_macos_Intel.app"
+            subprocess.run(["tar", "-czvf", f"dist/twitchTransFN_{version}_macos_Intel.tar.gz", "-C", "dist", output_filename], check=True)
     print(f"Build for {os_name} ({arch}) completed.")
 
 def main(target_os):

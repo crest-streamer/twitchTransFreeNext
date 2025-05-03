@@ -92,11 +92,6 @@ jobs:
         env:
           VERSION: ${{ github.ref_name }}
 
-      - name: Rename Windows binary
-        if: matrix.os == 'windows-latest'
-        run: |
-          mv dist/twitchTransFN.exe dist/twitchTransFN_win.exe
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -105,7 +100,7 @@ jobs:
             release/*
 
       - name: Create Release
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/cv')
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}

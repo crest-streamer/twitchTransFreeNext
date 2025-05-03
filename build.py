@@ -37,6 +37,7 @@ def build_for_os(os_name, arch, add_data_option):
         "--include-package=gtts",
         "--include-package=playsound",
         "--include-package=deepl",
+        "--nofollow-import-to=config",
         "--include-package=twitchio",
         "--include-package=emoji",
         "--include-module=tts",

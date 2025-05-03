@@ -97,15 +97,6 @@ jobs:
         run: |
           mv dist/twitchTransFN.exe dist/twitchTransFN_win.exe
 
-      - name: Archive artifacts
-        run: |
-          mkdir -p release
-          if [ "${{ matrix.archive }}" = "zip" ]; then
-            7z a "release/${{ matrix.bin }}_${{ matrix.env }}.zip" "./dist/${{ matrix.bin }}"
-          else
-            tar -czvf "release/${{ matrix.bin }}_${{ matrix.env }}.tar.gz" -C dist "${{ matrix.bin }}"
-          fi
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
